@@ -412,6 +412,7 @@ agenda(){
   <div class="card"><h2>${calSel===tk?'Aujourd\'hui':sel.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}<small class="link" onclick="evSheet()">+ Ajouter</small></h2>
     ${dayEv.length?dayEv.map(evRow).join(''):'<div class="mut">Rien de prévu ce jour-là.</div>'}</div>
   <div class="card"><h2>⏭️ Prochainement</h2>${up.length?up.map(evRow).join(''):'<div class="mut">Rien de prévu. Ajoute tes rendez-vous et les anniversaires avec <b style="color:var(--pri)">+</b></div>'}</div>
+  ${!st.notif&&notifOK()?'<div class="row" style="margin-bottom:12px"><button class="btn soft" onclick="notifOn()">🔔 Me prévenir des anniversaires</button></div>':''}
   <p class="mut" style="text-align:center">Touche un jour pour voir ou ajouter. Glisse pour changer de mois.<br>Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
 }};
 
@@ -420,6 +421,7 @@ function settings(){
   sheet(`<h3>⚙️ Réglages</h3>
   <div class="lbl">Ton prénom (sur ce téléphone)</div>
   <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="render()">
+  ${notifBlock()}
   ${shareBlock()}
   <div class="lbl">Sauvegarde</div>
   <p class="mut">Fais une sauvegarde de temps en temps pour ne rien perdre.</p>
@@ -493,7 +495,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.9';
+const APPV='2026-10-31.10';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -572,6 +574,41 @@ function shareBlock(){
 function sendApp(){const u=location.origin+location.pathname,txt='🌸 Notre appli Céline (courses, ménage, repas, agenda) : '+u;
   if(navigator.share)navigator.share({text:txt}).catch(()=>{});else navigator.clipboard.writeText(u).then(()=>toast('Lien copié 📋'),()=>prompt('Copie ce lien :',u))}
 setSy('');startStream();sync();
+
+// ---------- Notifications d'anniversaire ----------
+// Le téléphone s'abonne (Web Push) ; l'abonnement est rangé dans FB/familles/FAM-push/.
+// Chaque matin, GitHub Actions (scripts/anniversaires.js) lit l'agenda et envoie la notification.
+const VAPID='BFTvZTIh2aUkk9nV12w9d9lKZTNCteSiai2ysh2Hk39XvW3q58awzFHLEPRBAqqfaqm4aqNUGeKMjBAv_1BcT7M';
+const pushURL=id=>FB+'/familles/'+FAM+'-push/'+id+'.json';
+const notifOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function b64u(s){const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+function hashStr(s){let h=5381;for(const c of s)h=(h*33^c.charCodeAt(0))>>>0;return h.toString(36)}
+async function notifOn(){
+  if(isIOS&&!standalone()){toast('Installe d\'abord Céline sur l\'écran d\'accueil 📲');closeSheet();showIns(1);return}
+  if(!notifOK()){toast('Ce téléphone ne permet pas les notifications 😕');return}
+  try{
+    const p=await Notification.requestPermission();if(p!=='granted'){toast('Notifications refusées. Autorise-les dans les réglages du téléphone.');return}
+    const reg=await navigator.serviceWorker.ready;
+    const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
+    const j=sub.toJSON(),r=await fetch(pushURL(hashStr(j.endpoint)),{method:'PUT',body:JSON.stringify({endpoint:j.endpoint,keys:j.keys,name:st.name||'',t:Date.now()})});
+    if(!r.ok)throw r.status;
+    st.notif=1;saveLocal();toast('🔔 Notifications activées !');settings();
+  }catch(e){toast('Impossible d\'activer les notifications, réessaie plus tard')}
+}
+async function notifOff(){
+  try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+    if(sub){await fetch(pushURL(hashStr(sub.endpoint)),{method:'DELETE'}).catch(()=>{});await sub.unsubscribe()}}catch(e){}
+  st.notif=0;saveLocal();toast('🔕 Notifications coupées');settings();
+}
+function notifBlock(){
+  const on=st.notif&&notifOK()&&Notification.permission==='granted';
+  return `<div class="lbl">🔔 Notifications</div>
+    <p class="mut">Un message le matin quand c'est un anniversaire 🎂, et la veille pour penser au cadeau 🎁.</p>
+    <div class="row">${on?'<button class="btn soft" onclick="notifOff()">🔕 Couper les notifications</button>':'<button class="btn" onclick="notifOn()">🔔 Activer les notifications</button>'}</div>`;
+}
+// Clic sur une notification : ouvrir l'agenda.
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='agenda')go('agenda')});
+if(location.hash==='#agenda'){tab='agenda';history.replaceState(null,'',location.pathname)}
 setInterval(()=>{if(!document.hidden)sync()},30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else{startStream();sync()}});
 addEventListener('online',()=>sync());

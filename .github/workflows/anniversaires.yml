@@ -1,0 +1,24 @@
+name: Notifications anniversaires
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 6 * * *"   # vers 7h40 l'hiver, 8h40 l'été (heure belge)
+
+permissions:
+  actions: write
+
+jobs:
+  envoyer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save web-push@3.6.7
+      - run: node scripts/anniversaires.js
+        env:
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+      # GitHub arrête les tâches planifiées après 60 jours sans changement : ceci les garde actives.
+      - uses: gautamkrishnar/keepalive-workflow@v2
