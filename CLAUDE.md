@@ -39,3 +39,8 @@ Web Push : le premier téléphone qui active crée la paire de clés (`pushKey()
 `.github/workflows/anniversaires.yml` lance chaque matin `scripts/anniversaires.js` : jour J et veille des événements `type:'anniv'`. Rappel aussi sur l'accueil le jour J.
 Rien à configurer côté GitHub. Abonnements morts (404/410) supprimés.
 `sw.js` affiche la notification (`push`) et ouvre l'agenda au clic. Sur iPhone : seulement si l'appli est installée (iOS 16.4+).
+
+## Horaire de travail (agenda)
+`st.shifts` = types de journée (`{id,e,n,h,c,u}`, 6 par défaut `s1`…`s6`), `st.sched[date]={v:id,u}` (v vide = effacé), partagés comme le reste.
+« Semaine type » (`weekSheet()`/`applyPat()`, option 1 semaine sur 2) remplit une période ; « Jour par jour » = mode pinceau (`paint`).
+Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Horaire du jour et de demain sur l'accueil.

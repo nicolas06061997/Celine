@@ -118,6 +118,12 @@ textarea{min-height:90px;resize:vertical}
 .cal .c.td{background:var(--pri3);color:var(--pri);box-shadow:inset 0 0 0 2px var(--pri)}
 .cal .c.sel{background:var(--pri);color:#fff;box-shadow:none}
 .cal .dots{font-size:12px;line-height:1.2;margin-top:2px;min-height:14px}
+.cal .c[style*="--shc"]{background:var(--shc);color:#4a3940}
+.cal .c[style*="--shc"].td{box-shadow:inset 0 0 0 2.5px var(--pri)}
+.cal .c[style*="--shc"].sel{background:var(--pri);color:#fff}
+.cal .sh{font-size:12px;line-height:1}
+.shrow{border-radius:12px;padding:9px 12px;margin:0 0 6px;color:#4a3940;font-size:15px}
+.paint{position:sticky;top:6px;z-index:4;outline:2.5px solid var(--pri)}
 .ring text{font-weight:800;fill:var(--ink)}
 </style>
 </head>
@@ -168,12 +174,18 @@ const CATS=[
 const MEALS=['Pâtes bolognaise','Poulet rôti & pommes de terre','Croque-monsieur & salade','Quiche lorraine','Gratin dauphinois','Saumon & riz','Soupe de légumes','Lasagnes','Chili con carne','Omelette & salade','Boulettes sauce tomate','Raclette','Pizza maison','Stoemp & saucisse','Hachis parmentier','Curry de poulet','Wraps poulet crudités','Carbonnade & frites','Salade composée','Risotto aux champignons','Poisson pané & purée','Tacos maison','Crêpes salées','Vol-au-vent'];
 const QUOTES=['Un petit pas chaque jour, et tout avance 🌷','Pense aussi à toi aujourd\'hui 💗','Tu fais déjà beaucoup, sois fière de toi ✨','Une tâche à la fois, tranquillement ☕','La maison n\'a pas besoin d\'être parfaite, elle doit être heureuse 🏡','Prends 5 minutes rien que pour toi aujourd\'hui 🌸','Ce qui est fait n\'est plus à faire 💪','Souris, tu gères ! 😊'];
 
+// ---------- Horaire (types de journée de travail) ----------
+const SHIFT0=[['🌅','Matin','6h – 14h','#ffe1b3'],['☀️','Journée','8h – 17h','#fff0a6'],['🌇','Après-midi','14h – 22h','#ffc9de'],['🌙','Nuit','22h – 6h','#cfd3ff'],['🏖️','Congé','','#c8f0d8'],['😴','Repos','','#e9e2e6']];
+const SCOL=['#ffe1b3','#fff0a6','#ffc9de','#cfd3ff','#c8f0d8','#e9e2e6','#ffd0c2','#d6ecff','#e7d4ff','#d9f2b6'];
+const SEMO=['🌅','☀️','🌇','🌙','🏖️','😴','💼','🏥','🏪','🚗','🎓','⭐'];
+
 // ---------- Données ----------
 const KEY='celine1';
 function def(){
   let n0=0;const t=(e,n,d)=>({id:'d'+(++n0),e,t:n,day:d,rep:true,done:null,u:0});
   return {tasks:[t('🧺','Faire une lessive',0),t('🧹','Passer l\'aspirateur',2),t('🗑️','Sortir les poubelles',3),t('🛁','Nettoyer la salle de bain',4),t('🛏️','Changer les draps',5),t('🪴','Arroser les plantes',7)],
-    shop:[],hist:{},meals:{},events:[],memo:'',memoU:0,mu:{},gone:{},name:'Céline',fam:''};
+    shop:[],hist:{},meals:{},events:[],memo:'',memoU:0,mu:{},gone:{},name:'Céline',fam:'',
+    shifts:SHIFT0.map((x,i)=>({id:'s'+(i+1),e:x[0],n:x[1],h:x[2],c:x[3],u:0})),sched:{}};
 }
 let st=(()=>{try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.tasks)return Object.assign(def(),s)}catch(e){}return def()})();
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
@@ -190,8 +202,10 @@ function tidy(){
   const yest=ymd(new Date(Date.now()-92*864e5));
   st.events=st.events.filter(e=>{const k=e.yearly||e.date>=yest;if(!k)gone(e.id);return k});
   const old=Date.now()-60*864e5;for(const k in st.gone)if(st.gone[k]<old)delete st.gone[k];
+  const so=schedMin();for(const k in st.sched)if(k<so)delete st.sched[k];
   saveLocal();
 }
+const schedMin=()=>ymd(new Date(Date.now()-120*864e5));
 function emptyMeals(){const n=Date.now();for(let d=0;d<7;d++)for(const k of['m','s'])st.mu[d+k]=n;st.meals={}}
 tidy();
 const isDone=t=>t.done===weekKey();
@@ -327,7 +341,51 @@ let calM=null,calSel=null,calX=null;
 // Jour du mois m (0-11) de l'année y où tombe l'événement, sinon 0.
 function occOn(e,y,m){const [ey,em,ed]=e.date.split('-').map(Number);return (e.yearly||ey===y)&&em-1===m&&ed<=new Date(y,m+1,0).getDate()?ed:0}
 function calMove(k){calM=new Date(calM.getFullYear(),calM.getMonth()+k,1);render()}
-function calPick(k){if(k===calSel){evSheet();return}calSel=k;render()}
+function calPick(k){if(paint){setSched(k,paint==='x'||shiftOn(k)&&shiftOn(k).id===paint?'':paint);buzz();render();return}if(k===calSel){evSheet();return}calSel=k;render()}
+// Horaire : st.sched[date]={v:id du type,u}
+let paint=null,pat=null;
+const shiftOn=k=>{const v=(st.sched[k]||{}).v;return v?st.shifts.find(x=>x.id===v):null};
+function setSched(k,v){st.sched[k]={v,u:Date.now()};save()}
+const shLabel=x=>x?`${esc(x.e)} ${esc(x.n)}${x.h?' · '+esc(x.h):''}`:'';
+function paintMode(on){paint=on?(paint||(st.shifts[0]||{}).id||'x'):null;render();if(on)window.scrollTo(0,0)}
+function paintPick(id){paint=id;render()}
+function weekSheet(){
+  const t=new Date(),end=new Date(t.getFullYear(),11,31);
+  pat=pat||st.pat||{n:1,w:[Array(7).fill(''),Array(7).fill('')]};
+  const from=ymd(t),to=ymd(end<=t?new Date(t.getFullYear()+1,11,31):end);
+  const wk=w=>DAYS.map((d,i)=>`<div class="lbl" style="margin-top:8px">${d}</div><div class="chips">${[{id:'',e:'—',n:'Rien'},...st.shifts].map(x=>`<button class="chip pw${w}d${i} ${pat.w[w][i]===x.id?'on':''}" onclick="setPat(${w},${i},'${x.id}',this)">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>`).join('');
+  sheet(`<h3>🔁 Semaine type</h3><p class="mut">Choisis ce que tu fais chaque jour de la semaine. Céline remplit tout le calendrier pour toi.</p>
+  <label class="tog"><input type="checkbox" ${pat.n===2?'checked':''} onchange="pat.n=this.checked?2:1;weekSheet()"> Mon horaire change une semaine sur deux</label>
+  ${pat.n===2?'<h3 style="margin-top:6px">Semaine 1</h3>':''}${wk(0)}${pat.n===2?'<h3 style="margin-top:18px">Semaine 2</h3>'+wk(1):''}
+  <div class="lbl">De quand à quand ?</div><div class="row"><input type="date" id="pf" value="${from}"><input type="date" id="pt" value="${to}"></div>
+  ${pat.n===2?'<p class="mut">La semaine 1 commence la semaine de la première date.</p>':''}
+  <div class="row" style="margin-top:14px"><button class="btn" onclick="applyPat()">✨ Remplir le calendrier</button></div>`);
+}
+function setPat(w,i,id,b){pat.w[w][i]=id;document.querySelectorAll('.pw'+w+'d'+i).forEach(x=>x.classList.remove('on'));b.classList.add('on')}
+function applyPat(){
+  const f=$('#pf').value,t=$('#pt').value;if(!f||!t||t<f){toast('Vérifie les dates');return}
+  const [fy,fm,fd]=f.split('-').map(Number),d=new Date(fy,fm-1,fd),mon=new Date(d);mon.setDate(d.getDate()-(d.getDay()+6)%7);
+  let n=0;const now=Date.now();
+  while(ymd(d)<=t&&n<800){const i=(d.getDay()+6)%7,w=Math.floor(Math.round((day0(d)-mon)/864e5)/7)%pat.n,id=pat.w[w][i];
+    if(id){st.sched[ymd(d)]={v:id,u:now};n++}d.setDate(d.getDate()+1)}
+  st.pat=pat;save();closeSheet();calM=new Date(fy,fm-1,1);render();toast(n+' jours remplis ✨');
+}
+function clearSchedSheet(){
+  const t=new Date();sheet(`<h3>🧽 Effacer l'horaire</h3><div class="lbl">De quand à quand ?</div><div class="row"><input type="date" id="cf" value="${ymd(t)}"><input type="date" id="ct" value="${ymd(new Date(t.getFullYear(),11,31))}"></div>
+  <div class="row" style="margin-top:14px"><button class="btn del" style="flex:1" onclick="clearSched()">Effacer ces jours</button></div>`)}
+function clearSched(){const f=$('#cf').value,t=$('#ct').value,now=Date.now();let n=0;for(const k in st.sched)if(k>=f&&k<=t&&st.sched[k].v){st.sched[k]={v:'',u:now};n++}save();closeSheet();render();toast(n+' jours effacés')}
+function typesSheet(){
+  sheet(`<h3>✏️ Mes types de journée</h3><p class="mut">Touche l'image ou la couleur pour la changer.</p>
+  ${st.shifts.map(x=>`<div class="row" style="margin:8px 0"><button class="chip" style="font-size:20px;padding:6px 10px" onclick="cycShift('${x.id}','e')">${esc(x.e)}</button>
+    <button class="chip" style="width:34px;height:34px;padding:0;background:${x.c}" onclick="cycShift('${x.id}','c')" aria-label="Couleur"></button>
+    <input value="${esc(x.n)}" placeholder="Nom" style="padding:10px" oninput="edShift('${x.id}','n',this.value)">
+    <input value="${esc(x.h)}" placeholder="Heures" style="padding:10px;max-width:110px" oninput="edShift('${x.id}','h',this.value)">
+    <button class="x" onclick="delShift('${x.id}')" aria-label="Supprimer">🗑️</button></div>`).join('')}
+  <div class="row" style="margin-top:12px"><button class="btn soft" onclick="addShift()">+ Ajouter un type</button><button class="btn" onclick="closeSheet();render()">Terminé</button></div>`)}
+function edShift(id,k,v){const x=st.shifts.find(s=>s.id===id);x[k]=v;x.u=Date.now();save()}
+function cycShift(id,k){const x=st.shifts.find(s=>s.id===id),L=k==='e'?SEMO:SCOL;x[k]=L[(L.indexOf(x[k])+1)%L.length];x.u=Date.now();save();typesSheet()}
+function addShift(){st.shifts.push({id:uid(),e:'💼',n:'Travail',h:'',c:SCOL[st.shifts.length%SCOL.length],u:Date.now()});save();typesSheet()}
+function delShift(id){gone(id);st.shifts=st.shifts.filter(s=>s.id!==id);if(paint===id)paint=null;save();typesSheet()}
 function calToday(){const t=new Date();calM=new Date(t.getFullYear(),t.getMonth(),1);calSel=ymd(t);render()}
 function calSwipe(ev){if(calX===null)return;const dx=ev.changedTouches[0].clientX-calX;calX=null;if(Math.abs(dx)>60)calMove(dx<0?1:-1)}
 
@@ -353,6 +411,8 @@ home(){
     <div class="card" onclick="go('courses')"><h2>🛒 Courses</h2><div class="big">${left}</div><div class="mut">article${left>1?'s':''} à acheter</div></div>
     <div class="card" onclick="go('menage')"><h2>✨ Semaine</h2><div class="big">${Math.round(wk*100)}%</div><div class="mut">du ménage fait</div></div>
   </div>
+  ${(()=>{const a=shiftOn(ymd(d)),b=shiftOn(ymd(new Date(d.getTime()+864e5)));return a||b?`<div class="card" onclick="go('agenda')"><h2>💼 Horaire</h2>
+    ${a?`<div class="shrow" style="background:${a.c}">Aujourd'hui : <b>${shLabel(a)}</b></div>`:''}${b?`<div class="shrow" style="background:${b.c}">Demain : <b>${shLabel(b)}</b></div>`:''}</div>`:''})()}
   <div class="card" onclick="go('repas')"><h2>🍽️ Au menu aujourd'hui</h2>
     <div class="item"><span class="e">☀️</span><span class="t">${m.m?esc(m.m):'<span class="mut">Midi : pas encore prévu</span>'}</span></div>
     <div class="item"><span class="e">🌙</span><span class="t">${m.s?esc(m.s):'<span class="mut">Soir : pas encore prévu</span>'}</span></div></div>
@@ -402,21 +462,30 @@ agenda(){
   let cells=['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d=>`<div class="wd">${d}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){const k=ymd(new Date(y,m,d)),ev=by[d]||[];
     const ic=ev.slice(0,2).map(e=>(TYPES.find(x=>x[0]===e.type)||TYPES[4])[1]).join('')+(ev.length>2?'+':'');
-    cells+=`<button class="c ${k===tk?'td':''} ${k===calSel?'sel':''}" onclick="calPick('${k}')">${d}<span class="dots">${ic}</span></button>`}
+    const sh=shiftOn(k);
+    cells+=`<button class="c ${k===tk?'td':''} ${k===calSel&&!paint?'sel':''}" style="${sh?'--shc:'+sh.c:''}" onclick="calPick('${k}')">${d}<span class="dots">${ic}</span>${sh?`<span class="sh">${esc(sh.e)}</span>`:''}</button>`}
   const [sy,sm,sd]=calSel.split('-').map(Number),sel=new Date(sy,sm-1,sd),n0=Math.round((sel-day0(t))/864e5);
   const dayEv=st.events.filter(e=>occOn(e,sy,sm-1)===sd).sort((a,b)=>(a.time||'').localeCompare(b.time||''))
     .map(e=>({e,dt:sel,n:n0,age:e.type==='anniv'&&+e.date.slice(0,4)>1900&&+e.date.slice(0,4)<sy?sy-+e.date.slice(0,4):0}));
   const up=upcoming().filter(x=>x.n>=0).slice(0,5);
-  return `<div class="card"><div class="cal-h"><button class="nb" onclick="calMove(-1)" aria-label="Mois précédent">‹</button>
+  const shSel=shiftOn(calSel);
+  const paintBar=paint?`<div class="card paint"><h2>🖌️ Touche les jours<small class="link" onclick="paintMode(0)">Terminé ✓</small></h2>
+    <div class="chips wrap">${st.shifts.map(x=>`<button class="chip ${paint===x.id?'on':''}" style="${paint===x.id?'':'background:'+x.c+';color:#4a3940'}" onclick="paintPick('${x.id}')">${esc(x.e)} ${esc(x.n)}</button>`).join('')}<button class="chip ${paint==='x'?'on':''}" onclick="paintPick('x')">🧽 Gomme</button></div></div>`:'';
+  return `${paintBar}<div class="card"><div class="cal-h"><button class="nb" onclick="calMove(-1)" aria-label="Mois précédent">‹</button>
     <b onclick="calToday()">${calM.toLocaleDateString('fr-BE',{month:'long',year:'numeric'})}</b>
     <button class="nb" onclick="calMove(1)" aria-label="Mois suivant">›</button></div>
     <div class="cal" ontouchstart="calX=event.touches[0].clientX" ontouchend="calSwipe(event)">${cells}</div>
     ${(y!==t.getFullYear()||m!==t.getMonth())?`<div style="text-align:center;margin-top:8px"><button class="chip" onclick="calToday()">Revenir à aujourd'hui</button></div>`:''}</div>
   <div class="card"><h2>${calSel===tk?'Aujourd\'hui':sel.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}<small class="link" onclick="evSheet()">+ Ajouter</small></h2>
+    ${shSel?`<div class="shrow" style="background:${shSel.c}">💼 Horaire : <b>${shLabel(shSel)}</b></div>`:''}
     ${dayEv.length?dayEv.map(evRow).join(''):'<div class="mut">Rien de prévu ce jour-là.</div>'}</div>
+  ${paint?'':`<div class="card"><h2>💼 Horaire de travail</h2>
+    <div class="chips wrap" style="margin-bottom:6px">${st.shifts.map(x=>`<span class="chip" style="background:${x.c};color:#4a3940;box-shadow:none">${shLabel(x)}</span>`).join('')}</div>
+    <div class="row"><button class="btn" onclick="weekSheet()">🔁 Semaine type</button><button class="btn soft" onclick="paintMode(1)">🖌️ Jour par jour</button></div>
+    <div class="row" style="margin-top:8px;justify-content:space-between"><span class="link" onclick="typesSheet()">✏️ Changer les types</span><span class="link" style="color:var(--mut)" onclick="clearSchedSheet()">🧽 Effacer</span></div></div>`}
   <div class="card"><h2>⏭️ Prochainement</h2>${up.length?up.map(evRow).join(''):'<div class="mut">Rien de prévu. Ajoute tes rendez-vous et les anniversaires avec <b style="color:var(--pri)">+</b></div>'}</div>
   ${!st.notif&&notifOK()?'<div class="row" style="margin-bottom:12px"><button class="btn soft" onclick="notifOn()">🔔 Me prévenir des anniversaires</button></div>':''}
-  <p class="mut" style="text-align:center">Touche un jour pour voir ou ajouter. Glisse pour changer de mois.<br>Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
+  <p class="mut" style="text-align:center">Touche un jour pour voir ou ajouter. Glisse pour changer de mois.<br>Les couleurs du calendrier montrent l'horaire de travail.<br>Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
 }};
 
 // ---------- Réglages / sauvegarde ----------
@@ -498,7 +567,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.12';
+const APPV='2026-10-31.13';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -526,7 +595,7 @@ const asMap=a=>{const o={};(a||[]).forEach(x=>{if(x&&x.id)o[x.id]=x});return o};
 function pack(s){
   const meals={};for(let d=0;d<7;d++)for(const k of['m','s']){const u=s.mu[d+k]||0,v=(s.meals[d]||{})[k]||'';if(u||v)meals[d+k]={v,u}}
   const hist={};for(const k in s.hist)hist[hk(k)]=s.hist[k];
-  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
+  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),shifts:asMap(s.shifts),sched:s.sched,meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
 }
 function merge(a,b){
   a=a||{};b=b||{};const g={...(a.gone||{})};for(const k in b.gone||{})g[k]=Math.max(g[k]||0,b.gone[k]);
@@ -535,7 +604,8 @@ function merge(a,b){
   const lst=n=>{const o={...(a[n]||{})};for(const k in b[n]||{})o[k]=newer(o[k],b[n][k]);for(const k in o)if(g[k]!==undefined&&g[k]>=(o[k].u||0))delete o[k];return o};
   const meals={...(a.meals||{})};for(const k in b.meals||{})meals[k]=newer(meals[k],b.meals[k]);
   const hist={...(a.hist||{})};for(const k in b.hist||{})hist[k]=Math.max(hist[k]||0,b.hist[k]);
-  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
+  const sched={...(a.sched||{})},so=schedMin();for(const k in b.sched||{})sched[k]=newer(sched[k],b.sched[k]);for(const k in sched)if(k<so)delete sched[k];
+  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),shifts:lst('shifts'),sched,meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
 }
 function unpack(m){
   const vals=o=>Object.values(o||{}).sort((x,y)=>x.id<y.id?-1:1);
@@ -543,6 +613,7 @@ function unpack(m){
   st.meals={};st.mu={};for(const k in m.meals||{}){const d=k[0],t=k[1];st.mu[k]=m.meals[k].u||0;if(m.meals[k].v)(st.meals[d]=st.meals[d]||{})[t]=m.meals[k].v}
   st.memo=(m.memo&&m.memo.v)||'';st.memoU=(m.memo&&m.memo.u)||0;
   st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
+  st.shifts=vals(m.shifts);st.sched=m.sched||{};
   st.gone=m.gone||{};
 }
 const famURL=()=>FB+'/familles/'+FAM+'.json';
