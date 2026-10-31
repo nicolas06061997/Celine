@@ -24,6 +24,8 @@ input:focus,textarea:focus{border-color:var(--pri2)}
 header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 4px}
 header h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.5px}
 header h1 span{color:var(--pri)}
+#sy{font-size:13px;font-weight:700;color:var(--mut);vertical-align:middle;letter-spacing:0}
+.code{font:700 17px ui-monospace,Menlo,monospace;background:var(--pri3);border-radius:12px;padding:10px;text-align:center;letter-spacing:1px;user-select:all;overflow-wrap:anywhere}
 .gear{font-size:22px;width:42px;height:42px;border-radius:50%;background:var(--card);box-shadow:var(--sh)}
 main{padding:8px 16px 20px;max-width:640px;margin:0 auto}
 .card{background:var(--card);border-radius:22px;padding:16px;margin:12px 0;box-shadow:var(--sh)}
@@ -101,7 +103,7 @@ textarea{min-height:90px;resize:vertical}
 </style>
 </head>
 <body>
-<header><h1>Céline <span>✿</span></h1><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></header>
+<header><h1>Céline <span>✿</span> <small id="sy" onclick="settings()"></small></h1><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></header>
 <main id="main"></main>
 <button id="fab" onclick="fab()" aria-label="Ajouter">+</button>
 <nav>
@@ -149,22 +151,28 @@ const QUOTES=['Un petit pas chaque jour, et tout avance 🌷','Pense aussi à to
 // ---------- Données ----------
 const KEY='celine1';
 function def(){
-  const t=(e,n,d)=>({id:uid(),e,t:n,day:d,rep:true,done:null});
+  let n0=0;const t=(e,n,d)=>({id:'d'+(++n0),e,t:n,day:d,rep:true,done:null,u:0});
   return {tasks:[t('🧺','Faire une lessive',0),t('🧹','Passer l\'aspirateur',2),t('🗑️','Sortir les poubelles',3),t('🛁','Nettoyer la salle de bain',4),t('🛏️','Changer les draps',5),t('🪴','Arroser les plantes',7)],
-    shop:[],hist:{},meals:{},events:[],memo:''};
+    shop:[],hist:{},meals:{},events:[],memo:'',memoU:0,mu:{},gone:{},name:'Céline',fam:''};
 }
 let st=(()=>{try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.tasks)return Object.assign(def(),s)}catch(e){}return def()})();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+function save(){saveLocal();if(st.fam&&FB){clearTimeout(pushT);pushT=setTimeout(sync,600)}}
+let pushT;
+const gone=id=>{st.gone[id]=Date.now()};
+const who=()=>esc(st.name||'Céline');
 // Nouvelle semaine : les tâches répétées repartent à zéro, les tâches uniques déjà faites disparaissent.
 function tidy(){
   const wk=weekKey();
-  st.tasks=st.tasks.filter(t=>t.rep||!t.done||t.done===wk);
-  if(st.mealWeek&&st.mealWeek!==wk&&st.mealsAuto){st.meals={}}
+  st.tasks=st.tasks.filter(t=>{const k=t.rep||!t.done||t.done===wk;if(!k)gone(t.id);return k});
+  if(st.mealWeek&&st.mealWeek!==wk&&st.mealsAuto)emptyMeals();
   st.mealWeek=wk;
   const yest=ymd(new Date(Date.now()-864e5));
-  st.events=st.events.filter(e=>e.yearly||e.date>=yest);
-  save();
+  st.events=st.events.filter(e=>{const k=e.yearly||e.date>=yest;if(!k)gone(e.id);return k});
+  const old=Date.now()-60*864e5;for(const k in st.gone)if(st.gone[k]<old)delete st.gone[k];
+  saveLocal();
 }
+function emptyMeals(){const n=Date.now();for(let d=0;d<7;d++)for(const k of['m','s'])st.mu[d+k]=n;st.meals={}}
 tidy();
 const isDone=t=>t.done===weekKey();
 
@@ -189,9 +197,9 @@ function taskRow(t){
   return `<div class="item ${isDone(t)?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button><span class="e">${esc(t.e)}</span><span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}</span></div>`}
 function toggleTask(id){
   const t=st.tasks.find(x=>x.id===id);if(!t)return;
-  t.done=isDone(t)?null:weekKey();buzz();save();render();
+  t.done=isDone(t)?null:weekKey();t.u=Date.now();buzz();save();render();
   if(t.done){const list=st.tasks.filter(x=>x.day===t.day);
-    if(list.every(isDone))toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo Céline, tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉');}
+    if(list.every(isDone))toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo '+(st.name||'Céline')+', tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉');}
 }
 function taskSheet(id){
   const t=id?st.tasks.find(x=>x.id===id):{e:'🧹',t:'',day:dayF,rep:true};
@@ -210,11 +218,11 @@ function setDay(i,b){ed.day=i;document.querySelectorAll('.dch').forEach(x=>x.cla
 function saveTask(){
   const n=$('#ft').value.trim();if(!n){$('#ft').focus();return}
   const rep=$('#fr').checked;
-  if(ed.id){Object.assign(st.tasks.find(x=>x.id===ed.id),{t:n,e:ed.e,day:ed.day,rep})}
-  else st.tasks.push({id:uid(),t:n,e:ed.e,day:ed.day,rep,done:null});
+  if(ed.id){Object.assign(st.tasks.find(x=>x.id===ed.id),{t:n,e:ed.e,day:ed.day,rep,u:Date.now()})}
+  else st.tasks.push({id:uid(),t:n,e:ed.e,day:ed.day,rep,done:null,u:Date.now()});
   dayF=ed.day;save();closeSheet();render();
 }
-function delTask(){st.tasks=st.tasks.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Tâche supprimée')}
+function delTask(){gone(ed.id);st.tasks=st.tasks.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Tâche supprimée')}
 
 // ---------- Courses ----------
 function catOf(name){const n=' '+name.toLowerCase()+' ';
@@ -224,14 +232,14 @@ function catOf(name){const n=' '+name.toLowerCase()+' ';
 function addItem(name){
   name=(name||'').trim();if(!name)return;
   const ex=st.shop.find(i=>i.t.toLowerCase()===name.toLowerCase());
-  if(ex){ex.done=false}else st.shop.push({id:uid(),t:name,c:catOf(name),done:false});
+  if(ex){ex.done=false;ex.u=Date.now()}else st.shop.push({id:uid(),t:name,c:catOf(name),done:false,u:Date.now()});
   const k=name.toLowerCase();st.hist[k]=(st.hist[k]||0)+1;
   buzz();save();render();
   const i=$('#ni');if(i){i.focus()}
 }
-function toggleItem(id){const i=st.shop.find(x=>x.id===id);i.done=!i.done;buzz();save();render()}
-function delItem(id){st.shop=st.shop.filter(x=>x.id!==id);save();render()}
-function clearTaken(){st.shop=st.shop.filter(x=>!x.done);save();render();toast('Articles pris retirés 🧺')}
+function toggleItem(id){const i=st.shop.find(x=>x.id===id);i.done=!i.done;i.u=Date.now();buzz();save();render()}
+function delItem(id){gone(id);st.shop=st.shop.filter(x=>x.id!==id);save();render()}
+function clearTaken(){st.shop=st.shop.filter(x=>{if(x.done)gone(x.id);return !x.done});save();render();toast('Articles pris retirés 🧺')}
 function shareList(){
   const left=st.shop.filter(i=>!i.done);if(!left.length){toast('La liste est vide');return}
   let txt='🛒 Liste de courses\n';
@@ -243,10 +251,10 @@ function changeCat(id){
   const it=st.shop.find(x=>x.id===id);
   sheet(`<h3>Rayon pour « ${esc(it.t)} »</h3><div class="chips wrap">${CATS.map((c,i)=>`<button class="chip ${i===it.c?'on':''}" onclick="setCat('${id}',${i})">${c[1]} ${c[0]}</button>`).join('')}</div>`);
 }
-function setCat(id,i){st.shop.find(x=>x.id===id).c=i;save();closeSheet();render()}
+function setCat(id,i){Object.assign(st.shop.find(x=>x.id===id),{c:i,u:Date.now()});save();closeSheet();render()}
 
 // ---------- Repas ----------
-function setMeal(d,k,v){(st.meals[d]=st.meals[d]||{})[k]=v;save()}
+function setMeal(d,k,v){(st.meals[d]=st.meals[d]||{})[k]=v;st.mu[d+k]=Date.now();save()}
 function dice(d,k){const v=MEALS[Math.floor(Math.random()*MEALS.length)];setMeal(d,k,v);const i=document.getElementById('m'+d+k);if(i)i.value=v;buzz()}
 function mealsToShop(){
   const all=[];for(let d=0;d<7;d++){const m=st.meals[d]||{};['m','s'].forEach(k=>m[k]&&all.push(m[k]))}
@@ -255,8 +263,8 @@ function mealsToShop(){
   <p class="mut">${all.map(esc).join(' · ')}</p><textarea id="ing" placeholder="Ex : pâtes, haché, tomates, parmesan"></textarea>
   <div class="row" style="margin-top:12px"><button class="btn" onclick="addIng()">Ajouter à la liste</button></div>`);
 }
-function addIng(){const v=$('#ing').value.split(/[,\n]/).map(s=>s.trim()).filter(Boolean);v.forEach(n=>{const ex=st.shop.find(i=>i.t.toLowerCase()===n.toLowerCase());if(ex)ex.done=false;else st.shop.push({id:uid(),t:n,c:catOf(n),done:false})});save();closeSheet();toast(v.length+' article(s) ajouté(s) 🛒');render()}
-function clearMeals(){if(confirm('Vider tous les repas de la semaine ?')){st.meals={};save();render()}}
+function addIng(){const v=$('#ing').value.split(/[,\n]/).map(s=>s.trim()).filter(Boolean);v.forEach(n=>{const ex=st.shop.find(i=>i.t.toLowerCase()===n.toLowerCase());if(ex){ex.done=false;ex.u=Date.now()}else st.shop.push({id:uid(),t:n,c:catOf(n),done:false,u:Date.now()})});save();closeSheet();toast(v.length+' article(s) ajouté(s) 🛒');render()}
+function clearMeals(){if(confirm('Vider tous les repas de la semaine ?')){emptyMeals();save();render()}}
 function autoMeals(b){st.mealsAuto=b.checked;save()}
 
 // ---------- Agenda ----------
@@ -287,11 +295,11 @@ function evSheet(id){
 function setType(t,b){ed.type=t;document.querySelectorAll('.tch').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(t==='anniv')$('#ey').checked=true}
 function saveEv(){
   const t=$('#et').value.trim(),d=$('#ed').value;if(!t){$('#et').focus();return}if(!d){$('#ed').focus();return}
-  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked};
+  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,u:Date.now()};
   if(ed.id)Object.assign(st.events.find(x=>x.id===ed.id),o);else st.events.push({id:uid(),...o});
   save();closeSheet();render();
 }
-function delEv(){st.events=st.events.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Événement supprimé')}
+function delEv(){gone(ed.id);st.events=st.events.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Événement supprimé')}
 
 // ---------- Vues ----------
 const V={
@@ -304,7 +312,7 @@ home(){
   const m=st.meals[ti]||{};
   const ev=upcoming().filter(x=>x.n>=0&&x.n<=14).slice(0,4);
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
-  return `<div class="hero"><div class="hi">${hi} Céline 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
+  return `<div class="hero"><div class="hi">${hi} ${who()} 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
   ${installBanner()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
     ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(taskRow).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
@@ -317,7 +325,7 @@ home(){
     <div class="item"><span class="e">☀️</span><span class="t">${m.m?esc(m.m):'<span class="mut">Midi : pas encore prévu</span>'}</span></div>
     <div class="item"><span class="e">🌙</span><span class="t">${m.s?esc(m.s):'<span class="mut">Soir : pas encore prévu</span>'}</span></div></div>
   <div class="card"><h2>📅 À venir<small onclick="go('agenda')" class="link">Agenda ›</small></h2>${ev.length?ev.map(evRow).join(''):'<div class="mut">Rien dans les 2 prochaines semaines.</div>'}</div>
-  <div class="card"><h2>📝 Pense-bête</h2><textarea placeholder="Une idée, un truc à ne pas oublier…" oninput="st.memo=this.value;save()">${esc(st.memo)}</textarea></div>`;
+  <div class="card"><h2>📝 Pense-bête</h2><textarea placeholder="Une idée, un truc à ne pas oublier…" oninput="st.memo=this.value;st.memoU=Date.now();save()">${esc(st.memo)}</textarea></div>`;
 },
 menage(){
   const all=st.tasks,dn=all.filter(isDone).length,ti=todayI();
@@ -364,8 +372,11 @@ agenda(){
 // ---------- Réglages / sauvegarde ----------
 function settings(){
   sheet(`<h3>⚙️ Réglages</h3>
+  <div class="lbl">Ton prénom (sur ce téléphone)</div>
+  <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="render()">
+  ${shareBlock()}
   <div class="lbl">Sauvegarde</div>
-  <p class="mut">Tes données restent sur ce téléphone. Fais une sauvegarde de temps en temps pour ne rien perdre.</p>
+  <p class="mut">Fais une sauvegarde de temps en temps pour ne rien perdre.</p>
   <div class="row"><button class="btn" onclick="backup()">💾 Sauvegarder</button><button class="btn soft" onclick="$('#file').click()">📂 Restaurer</button></div>
   <div class="lbl">Installer</div>
   <p class="mut">${installHelp()}</p>${dp?'<div class="row"><button class="btn" onclick="install()">📲 Installer Céline</button></div>':''}
@@ -381,10 +392,10 @@ function backup(){
 }
 function restore(inp){
   const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;st=Object.assign(def(),s);tidy();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
+  r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm('Effacer toutes les données de Céline ? Cette action est définitive.')){st=def();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm(st.fam?'Effacer les données de ce téléphone ? (Le partage est aussi arrêté sur ce téléphone, l\'autre garde tout.)':'Effacer toutes les données de Céline ? Cette action est définitive.')){st=def();saveLocal();stopStream();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 let dp=null;
@@ -401,7 +412,7 @@ function installBanner(){if(standalone()||st.noBanner||(!dp&&!isIOS))return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.1';
+const APPV='2026-10-31.2';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -412,7 +423,92 @@ function chkV(man){if(SWR)SWR.update().catch(()=>{});
 try{const o=localStorage.getItem('celine-v');localStorage.setItem('celine-v',APPV);if(o&&o!==APPV)setTimeout(()=>toast('Céline a été mise à jour ✨'),600)}catch(e){}
 chkV();setInterval(chkV,30*60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)chkV()});
-render();
+
+// ---------- Partage entre deux téléphones (Firebase Realtime Database) ----------
+// Chaque famille a un code secret : ses données sont dans FB/familles/<code>.json.
+// Chaque élément porte sa date de modification (u) ; les suppressions sont notées dans `gone`.
+// La fusion garde toujours la version la plus récente : rien ne se perd si les deux modifient en même temps.
+const FB='';
+const hk=k=>'k'+encodeURIComponent(k).replace(/\./g,'%2E');
+function norm(x){
+  if(x===null||x===undefined||x==='')return undefined;
+  if(typeof x!=='object')return x;
+  const o={};Object.keys(x).sort().forEach(k=>{const v=norm(x[k]);if(v!==undefined&&!(typeof v==='object'&&!Object.keys(v).length))o[k]=v});return o;
+}
+const asMap=a=>{const o={};(a||[]).forEach(x=>{if(x&&x.id)o[x.id]=x});return o};
+function pack(s){
+  const meals={};for(let d=0;d<7;d++)for(const k of['m','s']){const u=s.mu[d+k]||0,v=(s.meals[d]||{})[k]||'';if(u||v)meals[d+k]={v,u}}
+  const hist={};for(const k in s.hist)hist[hk(k)]=s.hist[k];
+  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
+}
+function merge(a,b){
+  a=a||{};b=b||{};const g={...(a.gone||{})};for(const k in b.gone||{})g[k]=Math.max(g[k]||0,b.gone[k]);
+  const newer=(x,y)=>!x?y:!y?x:((y.u||0)>(x.u||0)?y:x);
+  const lst=n=>{const o={...(a[n]||{})};for(const k in b[n]||{})o[k]=newer(o[k],b[n][k]);for(const k in o)if(g[k]!==undefined&&g[k]>=(o[k].u||0))delete o[k];return o};
+  const meals={...(a.meals||{})};for(const k in b.meals||{})meals[k]=newer(meals[k],b.meals[k]);
+  const hist={...(a.hist||{})};for(const k in b.hist||{})hist[k]=Math.max(hist[k]||0,b.hist[k]);
+  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
+}
+function unpack(m){
+  const vals=o=>Object.values(o||{}).sort((x,y)=>x.id<y.id?-1:1);
+  st.tasks=vals(m.tasks).map(t=>({done:null,...t}));st.shop=vals(m.shop).map(i=>({done:false,...i}));st.events=vals(m.events).map(e=>({time:'',yearly:false,...e}));
+  st.meals={};st.mu={};for(const k in m.meals||{}){const d=k[0],t=k[1];st.mu[k]=m.meals[k].u||0;if(m.meals[k].v)(st.meals[d]=st.meals[d]||{})[t]=m.meals[k].v}
+  st.memo=(m.memo&&m.memo.v)||'';st.memoU=(m.memo&&m.memo.u)||0;
+  st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
+  st.gone=m.gone||{};
+}
+const famURL=()=>FB+'/familles/'+st.fam+'.json';
+let syncing=false,again=false,syncOK=null,needR=false;
+function setSy(t){syncOK=t;const e=$('#sy');if(e)e.textContent=!st.fam||!FB?'':t==='ok'?'☁️ partagé':t==='err'?'⚠️ hors ligne':'☁️ …'}
+async function sync(){
+  if(!FB||!st.fam)return;if(syncing){again=true;return}syncing=true;
+  try{
+    const r=await fetch(famURL(),{cache:'no-store'});if(!r.ok)throw r.status;
+    const remote=norm(await r.json())||{},local=pack(st),m=merge(local,remote),ms=JSON.stringify(m);
+    if(ms!==JSON.stringify(remote)){const w=await fetch(famURL(),{method:'PUT',body:ms});if(!w.ok)throw w.status}
+    if(ms!==JSON.stringify(local)){unpack(m);tidy();softRender()}
+    setSy('ok');
+  }catch(e){setSy('err')}
+  syncing=false;if(again){again=false;sync()}
+}
+const typing=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&!$('#sh').contains(a)};
+function softRender(){const a=document.activeElement;if(a&&a.id==='ni'){const v=a.value;render();const n=$('#ni');if(n){n.value=v;n.focus()}return}if(typing())needR=true;else render()}
+document.addEventListener('focusout',()=>setTimeout(()=>{if(needR&&!typing()){needR=false;render()}},250));
+// Écoute en direct : dès que l'autre téléphone change quelque chose, on récupère.
+let es=null,esT;
+function startStream(){stopStream();if(!FB||!st.fam||!window.EventSource)return;
+  try{es=new EventSource(famURL());const on=()=>{clearTimeout(esT);esT=setTimeout(sync,300)};es.addEventListener('put',on);es.addEventListener('patch',on)}catch(e){}}
+function stopStream(){if(es){es.close();es=null}}
+function newCode(){const a='abcdefghjkmnpqrstuvwxyz23456789',r=new Uint32Array(20);crypto.getRandomValues(r);return [...r].map(x=>a[x%a.length]).join('').match(/.{5}/g).join('-')}
+const famLink=()=>location.origin+location.pathname+'#f='+st.fam;
+function shareBlock(){
+  if(!FB)return '';
+  if(!st.fam)return `<div class="lbl">👫 Partager avec ma famille</div>
+    <p class="mut">Ton mari (ou ta femme) voit tout ce que tu ajoutes : courses, ménage, repas, agenda. Et l'inverse aussi.</p>
+    <div class="row"><button class="btn" onclick="createFam()">💞 Créer le partage</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn soft" onclick="askJoin()">🔑 J'ai reçu un code</button></div>`;
+  return `<div class="lbl">👫 Partage ${syncOK==='ok'?'actif ✅':syncOK==='err'?'(pas de connexion) ⚠️':''}</div>
+    <p class="mut">Envoie ce lien à l'autre téléphone : il l'ouvre et vous voyez tous les deux la même chose.</p>
+    <div class="code">${esc(st.fam)}</div>
+    <div class="row" style="margin-top:8px"><button class="btn" onclick="sendFam()">📤 Envoyer le lien</button></div>
+    <div class="row"><button class="btn del" style="flex:1" onclick="leaveFam()">Arrêter le partage sur ce téléphone</button></div>`;
+}
+function joinFam(code){st.fam=code;saveLocal();setSy('');startStream();sync().then(()=>{render();toast(syncOK==='ok'?'Partage activé 💞':'Pas de connexion, on réessaiera')})}
+function createFam(){joinFam(newCode());settings()}
+function askJoin(){const v=prompt('Colle ici le lien ou le code reçu :');if(!v)return;const m=v.toLowerCase().match(/([a-z0-9]{5}(?:-[a-z0-9]{5}){3})/);if(!m){toast('Code non reconnu ❌');return}joinFam(m[1]);closeSheet()}
+function sendFam(){const u=famLink(),txt='💞 Rejoins ma liste Céline (courses, ménage, repas, agenda) : '+u;
+  if(navigator.share)navigator.share({text:txt}).catch(()=>{});else navigator.clipboard.writeText(u).then(()=>toast('Lien copié 📋'),()=>prompt('Copie ce lien :',u))}
+function leaveFam(){if(!confirm('Arrêter le partage sur ce téléphone ? Les listes restent ici, mais ne se mettent plus à jour.'))return;stopStream();st.fam='';saveLocal();setSy('');closeSheet();render()}
+// Lien reçu (…#f=code) : on propose de rejoindre la liste commune.
+function checkHash(){const m=location.hash.match(/f=([a-z0-9]{5}(?:-[a-z0-9]{5}){3})/);
+  if(m&&FB&&m[1]!==st.fam&&confirm('Rejoindre la liste partagée ? Tout ce qui est déjà sur ce téléphone sera ajouté à la liste commune.')){st.fam=m[1];saveLocal();return true}}
+checkHash();
+addEventListener('hashchange',()=>{if(checkHash())joinFam(st.fam)});
+if(FB&&st.fam){setSy('');startStream();sync()}
+setInterval(()=>{if(!document.hidden)sync()},30000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else if(st.fam){startStream();sync()}});
+addEventListener('online',()=>sync());
+render();setSy(syncOK);
 </script>
 </body>
 </html>

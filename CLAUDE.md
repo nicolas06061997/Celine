@@ -18,3 +18,11 @@ L'utilisateur parle français et n'est pas développeur : réponses courtes, en 
 ## Données
 Objet `st` sauvegardé dans `localStorage` clé `celine1` : `tasks` (jour 0-6 = lundi-dimanche, 7 = n'importe quand ; `done` = lundi de la semaine où c'est fait), `shop` (`c` = index dans `CATS`), `hist`, `meals`, `events`, `memo`.
 `tidy()` remet la semaine à zéro. Sauvegarde/restauration en JSON dans les réglages.
+
+## Partage entre deux téléphones
+`FB` (en bas de `index.html`) = adresse de la Firebase Realtime Database ; vide = partage caché.
+Données d'une famille : `FB/familles/<code>.json` (code secret de 20 lettres, envoyé par lien `#f=<code>`).
+Chaque élément a `u` (date de modif.), les suppressions vont dans `gone` : `merge()` garde le plus récent.
+Toute modification doit mettre à jour `u` (ou `mu` pour les repas, `memoU` pour le pense-bête) puis appeler `save()`.
+`name`, `fam`, `mealsAuto`, `noBanner` restent propres à chaque téléphone.
+Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",".write":"$code.length >= 20"}}}}`
