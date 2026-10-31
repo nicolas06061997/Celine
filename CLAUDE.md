@@ -43,5 +43,6 @@ Rien à configurer côté GitHub. Abonnements morts (404/410) supprimés.
 ## Horaire de travail (agenda)
 `st.shifts` = types de journée (`{id,e,n,h,c,u}`, 6 par défaut `s1`…`s6`), `st.sched[date]={v:id,u}` (v vide = effacé), partagés comme le reste.
 Heures d'un jour précis : `daySheet(k)` → `st.sched[k].h` (remplace les heures du type ; `shiftOn()` les fusionne).
-« Semaine type » (`weekSheet()`/`applyPat()`, option 1 semaine sur 2) remplit une période ; « Jour par jour » = mode pinceau (`paint`).
+« Ma semaine type » (`weekSheet()`/`applyPat()`, type + heures par jour, option 1 semaine sur 2) remplit une période ; « Recopier une semaine » (`repeatSheet()`) ; « Plusieurs jours » = mode pinceau (`paint`).
+Les heures ne sont stockées dans `sched[k].h` que si elles diffèrent de celles du type (`schedVal()`) ; les fenêtres préremplissent les heures du type (`typeHM()`).
 Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Horaire du jour et de demain sur l'accueil.

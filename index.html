@@ -122,6 +122,7 @@ textarea{min-height:90px;resize:vertical}
 .cal .c[style*="--shc"].td{box-shadow:inset 0 0 0 2.5px var(--pri)}
 .cal .c[style*="--shc"].sel{background:var(--pri);color:#fff}
 .cal .sh{font-size:12px;line-height:1}
+.pday{background:var(--pri3);border-radius:16px;padding:10px 12px;margin:8px 0}.pday>b{display:block;margin-bottom:4px}.pday .row{margin-top:6px}.pday input{padding:8px 10px}
 .shrow{border-radius:12px;padding:9px 12px;margin:0 0 6px;color:#4a3940;font-size:15px}
 .paint{position:sticky;top:6px;z-index:4;outline:2.5px solid var(--pri)}
 .ring text{font-weight:800;fill:var(--ink)}
@@ -348,43 +349,72 @@ const shiftOn=k=>{const e=st.sched[k]||{},t=e.v&&st.shifts.find(x=>x.id===e.v);r
 // Horaire d'un jour précis, avec ses propres heures (ex. 8h – 17h)
 const hm=v=>{if(!v)return '';const [h,m]=v.split(':');return (+h)+'h'+(m!=='00'?m:'')};
 const toHM=t=>{const m=(t||'').match(/(\d{1,2})\s*[h:]\s*(\d{2})?/);return m?String(m[1]).padStart(2,'0')+':'+(m[2]||'00'):''};
-function daySheet(k,keep){
-  const e=st.sched[k]||{},cur=shiftOn(k);let [a,b]=(cur&&cur.h||'').split(/[–-]/);a=toHM(a);b=toHM(b);
-  ed={k,v:e.v||(st.shifts[1]||st.shifts[0]||{}).id||''};if(keep){ed.v=keep.v;a=keep.a;b=keep.b}
-  const [y,m,d]=k.split('-').map(Number);
-  sheet(`<h3>💼 ${new Date(y,m-1,d).toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}</h3>
-  <div class="lbl">Quel genre de journée ?</div><div class="chips wrap">${st.shifts.map(x=>`<button class="chip dsh ${ed.v===x.id?'on':''}" style="${ed.v===x.id?'':'background:'+x.c+';color:#4a3940'}" onclick="daySheet(ed.k,{v:'${x.id}',a:$('#dh1').value,b:$('#dh2').value})">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>
-  <div class="lbl">Mes heures ce jour-là</div>
-  <div class="row"><span>De</span><input type="time" id="dh1" value="${a}"><span>à</span><input type="time" id="dh2" value="${b}"></div>
-  <p class="mut">Laisse vide pour garder les heures habituelles.</p>
-  <div class="row" style="margin-top:10px"><button class="btn" onclick="saveDay()">Enregistrer</button>${e.v?`<button class="btn del" onclick="setSched(ed.k,'');closeSheet();render()">Effacer</button>`:''}</div>`);
-}
-function saveDay(){const a=$('#dh1').value,b=$('#dh2').value;
-  st.sched[ed.k]={v:ed.v,u:Date.now(),...(a||b?{h:hm(a)+(b?' – '+hm(b):'')}:{})};save();closeSheet();render();toast('Horaire enregistré 💼')}
 function setSched(k,v){st.sched[k]={v,u:Date.now()};save()}
 const shLabel=x=>x?`${esc(x.e)} ${esc(x.n)}${x.h?' · '+esc(x.h):''}`:'';
 function paintMode(on){paint=on?(paint||(st.shifts[0]||{}).id||'x'):null;render();if(on)window.scrollTo(0,0)}
 function paintPick(id){paint=id;render()}
+// Heures de base d'un type (« 8h – 17h ») → ['08:00','17:00']
+const typeHM=id=>{const x=st.shifts.find(s=>s.id===id);const [a,b]=((x&&x.h)||'').split(/[–-]/);return [toHM(a),toHM(b)]};
+const hRange=(a,b)=>a||b?hm(a)+(b?' – '+hm(b):''):'';
+// N'enregistre des heures propres au jour que si elles diffèrent des heures de base du type.
+function schedVal(v,a,b,now){const [ta,tb]=typeHM(v),o={v,u:now};if((a||b)&&(a!==ta||b!==tb))o.h=hRange(a,b);return o}
+function daySheet(k,keep){
+  const e=st.sched[k]||{};
+  ed={k,v:e.v||(st.shifts[1]||st.shifts[0]||{}).id||''};if(keep)ed.v=keep;
+  let [a,b]=typeHM(ed.v);if(!keep&&e.h){const [x,y]=e.h.split(/[–-]/);a=toHM(x);b=toHM(y)}
+  const [y,m,d]=k.split('-').map(Number);
+  sheet(`<h3>💼 ${new Date(y,m-1,d).toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}</h3>
+  <div class="lbl">Quel genre de journée ?</div><div class="chips wrap">${st.shifts.map(x=>`<button class="chip ${ed.v===x.id?'on':''}" style="${ed.v===x.id?'':'background:'+x.c+';color:#4a3940'}" onclick="daySheet(ed.k,'${x.id}')">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>
+  <div class="lbl">Heures</div>
+  <div class="row"><span>De</span><input type="time" id="dh1" value="${a}"><span>à</span><input type="time" id="dh2" value="${b}"></div>
+  <p class="mut">Les heures habituelles sont déjà mises. Change-les seulement si ce jour-là est différent.</p>
+  <div class="row" style="margin-top:10px"><button class="btn" onclick="saveDay()">Enregistrer</button>${e.v?`<button class="btn del" onclick="setSched(ed.k,'');closeSheet();render()">Effacer</button>`:''}</div>`);
+}
+function saveDay(){st.sched[ed.k]=schedVal(ed.v,$('#dh1').value,$('#dh2').value,Date.now());save();closeSheet();render();toast('Horaire enregistré 💼')}
+// Semaine type : pour chaque jour, le genre de journée ET les heures.
 function weekSheet(){
   const t=new Date(),end=new Date(t.getFullYear(),11,31);
-  pat=pat||st.pat||{n:1,w:[Array(7).fill(''),Array(7).fill('')]};
+  pat=pat||st.pat||{n:1,w:[[],[]]};
+  pat.w=pat.w.map(w=>Array.from({length:7},(_,i)=>{const x=w[i];return typeof x==='string'?{v:x}:(x||{v:''})}));
   const from=ymd(t),to=ymd(end<=t?new Date(t.getFullYear()+1,11,31):end);
-  const wk=w=>DAYS.map((d,i)=>`<div class="lbl" style="margin-top:8px">${d}</div><div class="chips">${[{id:'',e:'—',n:'Rien'},...st.shifts].map(x=>`<button class="chip pw${w}d${i} ${pat.w[w][i]===x.id?'on':''}" onclick="setPat(${w},${i},'${x.id}',this)">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>`).join('');
-  sheet(`<h3>🔁 Semaine type</h3><p class="mut">Choisis ce que tu fais chaque jour de la semaine. Céline remplit tout le calendrier pour toi.</p>
+  const wk=w=>DAYS.map((d,i)=>{const c=pat.w[w][i];if(c.v&&c.a===undefined)[c.a,c.b]=typeHM(c.v);
+    return `<div class="pday"><b>${d}</b><div class="chips wrap">${[{id:'',e:'—',n:'Rien'},...st.shifts].map(x=>`<button class="chip pw${w}d${i} ${c.v===x.id?'on':''}" onclick="setPat(${w},${i},'${x.id}',this)">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>
+    <div class="row ph${w}d${i}" style="${c.v?'':'display:none'}"><span>De</span><input type="time" value="${c.a||''}" oninput="pat.w[${w}][${i}].a=this.value"><span>à</span><input type="time" value="${c.b||''}" oninput="pat.w[${w}][${i}].b=this.value"></div></div>`}).join('');
+  sheet(`<h3>🔁 Ma semaine type</h3><p class="mut">Remplis <b>une seule fois</b> ta semaine habituelle (le genre de journée et les heures). Céline remplit tout le calendrier pour toi.</p>
   <label class="tog"><input type="checkbox" ${pat.n===2?'checked':''} onchange="pat.n=this.checked?2:1;weekSheet()"> Mon horaire change une semaine sur deux</label>
   ${pat.n===2?'<h3 style="margin-top:6px">Semaine 1</h3>':''}${wk(0)}${pat.n===2?'<h3 style="margin-top:18px">Semaine 2</h3>'+wk(1):''}
   <div class="lbl">De quand à quand ?</div><div class="row"><input type="date" id="pf" value="${from}"><input type="date" id="pt" value="${to}"></div>
   ${pat.n===2?'<p class="mut">La semaine 1 commence la semaine de la première date.</p>':''}
   <div class="row" style="margin-top:14px"><button class="btn" onclick="applyPat()">✨ Remplir le calendrier</button></div>`);
 }
-function setPat(w,i,id,b){pat.w[w][i]=id;document.querySelectorAll('.pw'+w+'d'+i).forEach(x=>x.classList.remove('on'));b.classList.add('on')}
+function setPat(w,i,id,b){const c=pat.w[w][i];c.v=id;[c.a,c.b]=typeHM(id);
+  document.querySelectorAll('.pw'+w+'d'+i).forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  const r=$('.ph'+w+'d'+i);r.style.display=id?'':'none';const [x,y]=r.querySelectorAll('input');x.value=c.a||'';y.value=c.b||''}
 function applyPat(){
   const f=$('#pf').value,t=$('#pt').value;if(!f||!t||t<f){toast('Vérifie les dates');return}
   const [fy,fm,fd]=f.split('-').map(Number),d=new Date(fy,fm-1,fd),mon=new Date(d);mon.setDate(d.getDate()-(d.getDay()+6)%7);
   let n=0;const now=Date.now();
-  while(ymd(d)<=t&&n<800){const i=(d.getDay()+6)%7,w=Math.floor(Math.round((day0(d)-mon)/864e5)/7)%pat.n,id=pat.w[w][i];
-    if(id){st.sched[ymd(d)]={v:id,u:now};n++}d.setDate(d.getDate()+1)}
+  while(ymd(d)<=t&&n<800){const i=(d.getDay()+6)%7,w=Math.floor(Math.round((day0(d)-mon)/864e5)/7)%pat.n,c=pat.w[w][i];
+    if(c&&c.v){st.sched[ymd(d)]=schedVal(c.v,c.a,c.b,now);n++}d.setDate(d.getDate()+1)}
   st.pat=pat;save();closeSheet();calM=new Date(fy,fm-1,1);render();toast(n+' jours remplis ✨');
+}
+// Répéter une semaine déjà remplie (ou deux) jusqu'à une date.
+function repeatSheet(){
+  const [y,m,d]=calSel.split('-').map(Number),mon=new Date(y,m-1,d);mon.setDate(mon.getDate()-(mon.getDay()+6)%7);
+  const t=new Date(),end=new Date(t.getFullYear(),11,31);
+  sheet(`<h3>📋 Recopier une semaine</h3><p class="mut">Tu as rempli une semaine comme il faut ? Recopie-la sur les semaines suivantes.</p>
+  <div class="lbl">Semaine à recopier (commence le lundi)</div><input type="date" id="rf" value="${ymd(mon)}">
+  <label class="tog"><input type="checkbox" id="r2"> Recopier 2 semaines (horaire qui change une semaine sur deux)</label>
+  <div class="lbl">Jusqu'au</div><input type="date" id="rt" value="${ymd(end<=t?new Date(t.getFullYear()+1,11,31):end)}">
+  <div class="row" style="margin-top:14px"><button class="btn" onclick="doRepeat()">📋 Recopier</button></div>`)}
+function doRepeat(){
+  const [y,m,d]=$('#rf').value.split('-').map(Number),mon=new Date(y,m-1,d);mon.setDate(mon.getDate()-(mon.getDay()+6)%7);
+  const L=$('#r2').checked?14:7,to=$('#rt').value,src=[];
+  for(let i=0;i<L;i++){const x=new Date(mon);x.setDate(mon.getDate()+i);src.push(st.sched[ymd(x)]||{})}
+  if(!src.some(x=>x.v)){toast('Cette semaine est vide : remplis-la d\'abord');return}
+  const now=Date.now(),x=new Date(mon);x.setDate(mon.getDate()+L);let n=0,i=0;
+  while(ymd(x)<=to&&i<800){const c=src[i%L];if(c.v){st.sched[ymd(x)]={v:c.v,u:now,...(c.h?{h:c.h}:{})};n++}x.setDate(x.getDate()+1);i++}
+  save();closeSheet();render();toast(n+' jours recopiés ✨');
 }
 function clearSchedSheet(){
   const t=new Date();sheet(`<h3>🧽 Effacer l'horaire</h3><div class="lbl">De quand à quand ?</div><div class="row"><input type="date" id="cf" value="${ymd(t)}"><input type="date" id="ct" value="${ymd(new Date(t.getFullYear(),11,31))}"></div>
@@ -487,7 +517,8 @@ agenda(){
   const shSel=shiftOn(calSel);
   const paintBar=paint?`<div class="card paint"><h2>🖌️ Touche les jours<small class="link" onclick="paintMode(0)">Terminé ✓</small></h2>
     <div class="chips wrap">${st.shifts.map(x=>`<button class="chip ${paint===x.id?'on':''}" style="${paint===x.id?'':'background:'+x.c+';color:#4a3940'}" onclick="paintPick('${x.id}')">${esc(x.e)} ${esc(x.n)}</button>`).join('')}<button class="chip ${paint==='x'?'on':''}" onclick="paintPick('x')">🧽 Gomme</button></div></div>`:'';
-  return `${paintBar}<div class="card"><div class="cal-h"><button class="nb" onclick="calMove(-1)" aria-label="Mois précédent">‹</button>
+  const noSched=!paint&&!Array.from({length:14},(_,i)=>shiftOn(ymd(new Date(t.getTime()+i*864e5)))).some(Boolean);
+  return `${paintBar}${noSched?`<div class="card" style="background:linear-gradient(135deg,#fff3c4,#ffe0ec);color:#4a3940"><h2>💼 Ton horaire en 1 minute</h2><p style="margin:0 0 10px">Remplis ta semaine habituelle une seule fois, Céline remplit tout le calendrier.</p><div class="row"><button class="btn" onclick="weekSheet()">🔁 Ma semaine type</button></div></div>`:''}<div class="card"><div class="cal-h"><button class="nb" onclick="calMove(-1)" aria-label="Mois précédent">‹</button>
     <b onclick="calToday()">${calM.toLocaleDateString('fr-BE',{month:'long',year:'numeric'})}</b>
     <button class="nb" onclick="calMove(1)" aria-label="Mois suivant">›</button></div>
     <div class="cal" ontouchstart="calX=event.touches[0].clientX" ontouchend="calSwipe(event)">${cells}</div>
@@ -497,7 +528,8 @@ agenda(){
     ${dayEv.length?dayEv.map(evRow).join(''):'<div class="mut">Rien de prévu ce jour-là.</div>'}</div>
   ${paint?'':`<div class="card"><h2>💼 Horaire de travail</h2>
     <div class="chips wrap" style="margin-bottom:6px">${st.shifts.map(x=>`<span class="chip" style="background:${x.c};color:#4a3940;box-shadow:none">${shLabel(x)}</span>`).join('')}</div>
-    <div class="row"><button class="btn" onclick="weekSheet()">🔁 Semaine type</button><button class="btn soft" onclick="paintMode(1)">🖌️ Jour par jour</button></div>
+    <div class="row"><button class="btn" onclick="weekSheet()">🔁 Ma semaine type</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn soft" onclick="repeatSheet()">📋 Recopier une semaine</button><button class="btn soft" onclick="paintMode(1)">🖌️ Plusieurs jours</button></div>
     <div class="row" style="margin-top:8px;justify-content:space-between"><span class="link" onclick="typesSheet()">✏️ Changer les types</span><span class="link" style="color:var(--mut)" onclick="clearSchedSheet()">🧽 Effacer</span></div></div>`}
   <div class="card"><h2>⏭️ Prochainement</h2>${up.length?up.map(evRow).join(''):'<div class="mut">Rien de prévu. Ajoute tes rendez-vous et les anniversaires avec <b style="color:var(--pri)">+</b></div>'}</div>
   ${!st.notif&&notifOK()?'<div class="row" style="margin-bottom:12px"><button class="btn soft" onclick="notifOn()">🔔 Me prévenir des anniversaires</button></div>':''}
@@ -583,7 +615,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.14';
+const APPV='2026-10-31.15';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
