@@ -107,6 +107,15 @@ nav button.on b{filter:none;opacity:1;transform:translateY(-2px) scale(1.12)}
 textarea{min-height:90px;resize:vertical}
 .link{color:var(--pri);font-weight:700;font-size:14px}
 .ring{flex:none}
+.cal-h{display:flex;align-items:center;justify-content:space-between}
+.cal-h b{font-size:19px;text-transform:capitalize}
+.nb{width:42px;height:42px;border-radius:50%;background:var(--pri3);font-size:24px;font-weight:700;color:var(--pri)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px}
+.cal .wd{text-align:center;font-size:12px;font-weight:800;color:var(--mut);padding:2px 0 4px}
+.cal .c{min-height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;padding:6px 0 2px;font-weight:700;font-size:15px}
+.cal .c.td{background:var(--pri3);color:var(--pri);box-shadow:inset 0 0 0 2px var(--pri)}
+.cal .c.sel{background:var(--pri);color:#fff;box-shadow:none}
+.cal .dots{font-size:12px;line-height:1.2;margin-top:2px;min-height:14px}
 .ring text{font-weight:800;fill:var(--ink)}
 </style>
 </head>
@@ -176,7 +185,7 @@ function tidy(){
   st.tasks=st.tasks.filter(t=>{const k=t.rep||!t.done||t.done===wk;if(!k)gone(t.id);return k});
   if(st.mealWeek&&st.mealWeek!==wk&&st.mealsAuto)emptyMeals();
   st.mealWeek=wk;
-  const yest=ymd(new Date(Date.now()-864e5));
+  const yest=ymd(new Date(Date.now()-92*864e5));
   st.events=st.events.filter(e=>{const k=e.yearly||e.date>=yest;if(!k)gone(e.id);return k});
   const old=Date.now()-60*864e5;for(const k in st.gone)if(st.gone[k]<old)delete st.gone[k];
   saveLocal();
@@ -287,13 +296,13 @@ function nextOcc(e){
   return {dt,n:Math.round((dt-t)/864e5),age:e.type==='anniv'&&y>1900&&y<t.getFullYear()?dt.getFullYear()-y:0};
 }
 function upcoming(){return st.events.map(e=>({e,...nextOcc(e)})).filter(x=>x.n>=-1).sort((a,b)=>a.n-b.n||(a.e.time||'').localeCompare(b.e.time||''))}
-function when(n){return n<0?'Hier':n===0?'Aujourd\'hui !':n===1?'Demain':'Dans '+n+' jours'}
+function when(n){return n<-1?'Il y a '+(-n)+' jours':n<0?'Hier':n===0?'Aujourd\'hui !':n===1?'Demain':'Dans '+n+' jours'}
 function evRow(x){const ty=TYPES.find(t=>t[0]===x.e.type)||TYPES[4];
   return `<div class="ev" onclick="evSheet('${x.e.id}')"><div class="d"><b>${x.dt.getDate()}</b><span>${MOIS[x.dt.getMonth()]}</span></div>
   <div style="flex:1;min-width:0"><div style="font-weight:700;overflow-wrap:anywhere">${ty[1]} ${esc(x.e.t)}${x.age?' <span class="mut">('+x.age+(x.age>1?' ans':' an')+')</span>':''}</div>
   <div class="mut">${x.e.time?'🕐 '+esc(x.e.time)+' · ':''}<span class="tag ${x.n<=1?'now':''}">${when(x.n)}</span></div></div></div>`}
 function evSheet(id){
-  const e=id?st.events.find(x=>x.id===id):{t:'',date:ymd(new Date()),time:'',type:'rdv',yearly:false};
+  const e=id?st.events.find(x=>x.id===id):{t:'',date:(tab==='agenda'&&calSel)||ymd(new Date()),time:'',type:'rdv',yearly:false};
   ed={id:id||'',type:e.type};
   sheet(`<h3>${id?'Modifier':'Nouvel événement'}</h3>
   <div class="chips wrap">${TYPES.map(t=>`<button class="chip tch ${t[0]===e.type?'on':''}" onclick="setType('${t[0]}',this)">${t[1]} ${t[2]}</button>`).join('')}</div>
@@ -310,6 +319,15 @@ function saveEv(){
   save();closeSheet();render();
 }
 function delEv(){gone(ed.id);st.events=st.events.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Événement supprimé')}
+
+// ---------- Calendrier ----------
+let calM=null,calSel=null,calX=null;
+// Jour du mois m (0-11) de l'année y où tombe l'événement, sinon 0.
+function occOn(e,y,m){const [ey,em,ed]=e.date.split('-').map(Number);return (e.yearly||ey===y)&&em-1===m&&ed<=new Date(y,m+1,0).getDate()?ed:0}
+function calMove(k){calM=new Date(calM.getFullYear(),calM.getMonth()+k,1);render()}
+function calPick(k){if(k===calSel){evSheet();return}calSel=k;render()}
+function calToday(){const t=new Date();calM=new Date(t.getFullYear(),t.getMonth(),1);calSel=ymd(t);render()}
+function calSwipe(ev){if(calX===null)return;const dx=ev.changedTouches[0].clientX-calX;calX=null;if(Math.abs(dx)>60)calMove(dx<0?1:-1)}
 
 // ---------- Vues ----------
 const V={
@@ -375,9 +393,26 @@ repas(){
   <div class="row"><button class="btn del" style="flex:1" onclick="clearMeals()">Vider la semaine</button></div>`;
 },
 agenda(){
-  const up=upcoming();
-  return `<div class="card"><h2>📅 Mes rendez-vous & dates</h2>${up.length?up.map(evRow).join(''):'<div class="empty"><b>🗓️</b>Rien de prévu.<br>Ajoute tes rendez-vous et les anniversaires avec <b style="display:inline;font-size:inherit;color:var(--pri)">+</b></div>'}</div>
-  <p class="mut" style="text-align:center">Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
+  const t=new Date();if(!calM)calM=new Date(t.getFullYear(),t.getMonth(),1);if(!calSel)calSel=ymd(t);
+  const y=calM.getFullYear(),m=calM.getMonth(),first=(calM.getDay()+6)%7,nd=new Date(y,m+1,0).getDate(),tk=ymd(t);
+  const by={};st.events.forEach(e=>{const d=occOn(e,y,m);if(d)(by[d]=by[d]||[]).push(e)});
+  let cells=['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d=>`<div class="wd">${d}</div>`).join('')+'<div></div>'.repeat(first);
+  for(let d=1;d<=nd;d++){const k=ymd(new Date(y,m,d)),ev=by[d]||[];
+    const ic=ev.slice(0,2).map(e=>(TYPES.find(x=>x[0]===e.type)||TYPES[4])[1]).join('')+(ev.length>2?'+':'');
+    cells+=`<button class="c ${k===tk?'td':''} ${k===calSel?'sel':''}" onclick="calPick('${k}')">${d}<span class="dots">${ic}</span></button>`}
+  const [sy,sm,sd]=calSel.split('-').map(Number),sel=new Date(sy,sm-1,sd),n0=Math.round((sel-day0(t))/864e5);
+  const dayEv=st.events.filter(e=>occOn(e,sy,sm-1)===sd).sort((a,b)=>(a.time||'').localeCompare(b.time||''))
+    .map(e=>({e,dt:sel,n:n0,age:e.type==='anniv'&&+e.date.slice(0,4)>1900&&+e.date.slice(0,4)<sy?sy-+e.date.slice(0,4):0}));
+  const up=upcoming().filter(x=>x.n>=0).slice(0,5);
+  return `<div class="card"><div class="cal-h"><button class="nb" onclick="calMove(-1)" aria-label="Mois précédent">‹</button>
+    <b onclick="calToday()">${calM.toLocaleDateString('fr-BE',{month:'long',year:'numeric'})}</b>
+    <button class="nb" onclick="calMove(1)" aria-label="Mois suivant">›</button></div>
+    <div class="cal" ontouchstart="calX=event.touches[0].clientX" ontouchend="calSwipe(event)">${cells}</div>
+    ${(y!==t.getFullYear()||m!==t.getMonth())?`<div style="text-align:center;margin-top:8px"><button class="chip" onclick="calToday()">Revenir à aujourd'hui</button></div>`:''}</div>
+  <div class="card"><h2>${calSel===tk?'Aujourd\'hui':sel.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}<small class="link" onclick="evSheet()">+ Ajouter</small></h2>
+    ${dayEv.length?dayEv.map(evRow).join(''):'<div class="mut">Rien de prévu ce jour-là.</div>'}</div>
+  <div class="card"><h2>⏭️ Prochainement</h2>${up.length?up.map(evRow).join(''):'<div class="mut">Rien de prévu. Ajoute tes rendez-vous et les anniversaires avec <b style="color:var(--pri)">+</b></div>'}</div>
+  <p class="mut" style="text-align:center">Touche un jour pour voir ou ajouter. Glisse pour changer de mois.<br>Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
 }};
 
 // ---------- Réglages / sauvegarde ----------
@@ -458,7 +493,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.8';
+const APPV='2026-10-31.9';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
