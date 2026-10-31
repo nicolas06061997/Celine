@@ -20,9 +20,9 @@ Objet `st` sauvegardé dans `localStorage` clé `celine1` : `tasks` (jour 0-6 = 
 `tidy()` remet la semaine à zéro. Sauvegarde/restauration en JSON dans les réglages.
 
 ## Partage entre deux téléphones
-`FB` (en bas de `index.html`) = adresse de la Firebase Realtime Database ; vide = partage caché.
-Données d'une famille : `FB/familles/<code>.json` (code secret de 20 lettres, envoyé par lien `#f=<code>`).
-Chaque élément a `u` (date de modif.), les suppressions vont dans `gone` : `merge()` garde le plus récent.
+`FB` (en bas de `index.html`) = https://jsonblob.com/api/jsonBlob (gratuit, sans compte, pas de temps réel : l'appli relit toutes les 8 s).
+« Créer le partage » fait un POST : l'identifiant du blob (en-tête `Location`/`X-jsonblob`) devient le code `fam`, envoyé par lien `#f=<code>`.
+Chaque élément a `u` (date de modif.), les suppressions vont dans `gone` : `merge()` garde le plus récent, puis PUT du tout.
 Toute modification doit mettre à jour `u` (ou `mu` pour les repas, `memoU` pour le pense-bête) puis appeler `save()`.
 `name`, `fam`, `mealsAuto`, `noBanner` restent propres à chaque téléphone.
-Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",".write":"$code.length >= 20"}}}}`
+Non testé en vrai depuis la session de développement (jsonblob.com bloqué) : seulement avec un faux serveur.
