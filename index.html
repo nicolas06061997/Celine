@@ -344,7 +344,23 @@ function calMove(k){calM=new Date(calM.getFullYear(),calM.getMonth()+k,1);render
 function calPick(k){if(paint){setSched(k,paint==='x'||shiftOn(k)&&shiftOn(k).id===paint?'':paint);buzz();render();return}if(k===calSel){evSheet();return}calSel=k;render()}
 // Horaire : st.sched[date]={v:id du type,u}
 let paint=null,pat=null;
-const shiftOn=k=>{const v=(st.sched[k]||{}).v;return v?st.shifts.find(x=>x.id===v):null};
+const shiftOn=k=>{const e=st.sched[k]||{},t=e.v&&st.shifts.find(x=>x.id===e.v);return t?{...t,h:e.h||t.h}:null};
+// Horaire d'un jour précis, avec ses propres heures (ex. 8h – 17h)
+const hm=v=>{if(!v)return '';const [h,m]=v.split(':');return (+h)+'h'+(m!=='00'?m:'')};
+const toHM=t=>{const m=(t||'').match(/(\d{1,2})\s*[h:]\s*(\d{2})?/);return m?String(m[1]).padStart(2,'0')+':'+(m[2]||'00'):''};
+function daySheet(k,keep){
+  const e=st.sched[k]||{},cur=shiftOn(k);let [a,b]=(cur&&cur.h||'').split(/[–-]/);a=toHM(a);b=toHM(b);
+  ed={k,v:e.v||(st.shifts[1]||st.shifts[0]||{}).id||''};if(keep){ed.v=keep.v;a=keep.a;b=keep.b}
+  const [y,m,d]=k.split('-').map(Number);
+  sheet(`<h3>💼 ${new Date(y,m-1,d).toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}</h3>
+  <div class="lbl">Quel genre de journée ?</div><div class="chips wrap">${st.shifts.map(x=>`<button class="chip dsh ${ed.v===x.id?'on':''}" style="${ed.v===x.id?'':'background:'+x.c+';color:#4a3940'}" onclick="daySheet(ed.k,{v:'${x.id}',a:$('#dh1').value,b:$('#dh2').value})">${esc(x.e)} ${esc(x.n)}</button>`).join('')}</div>
+  <div class="lbl">Mes heures ce jour-là</div>
+  <div class="row"><span>De</span><input type="time" id="dh1" value="${a}"><span>à</span><input type="time" id="dh2" value="${b}"></div>
+  <p class="mut">Laisse vide pour garder les heures habituelles.</p>
+  <div class="row" style="margin-top:10px"><button class="btn" onclick="saveDay()">Enregistrer</button>${e.v?`<button class="btn del" onclick="setSched(ed.k,'');closeSheet();render()">Effacer</button>`:''}</div>`);
+}
+function saveDay(){const a=$('#dh1').value,b=$('#dh2').value;
+  st.sched[ed.k]={v:ed.v,u:Date.now(),...(a||b?{h:hm(a)+(b?' – '+hm(b):'')}:{})};save();closeSheet();render();toast('Horaire enregistré 💼')}
 function setSched(k,v){st.sched[k]={v,u:Date.now()};save()}
 const shLabel=x=>x?`${esc(x.e)} ${esc(x.n)}${x.h?' · '+esc(x.h):''}`:'';
 function paintMode(on){paint=on?(paint||(st.shifts[0]||{}).id||'x'):null;render();if(on)window.scrollTo(0,0)}
@@ -379,7 +395,7 @@ function typesSheet(){
   ${st.shifts.map(x=>`<div class="row" style="margin:8px 0"><button class="chip" style="font-size:20px;padding:6px 10px" onclick="cycShift('${x.id}','e')">${esc(x.e)}</button>
     <button class="chip" style="width:34px;height:34px;padding:0;background:${x.c}" onclick="cycShift('${x.id}','c')" aria-label="Couleur"></button>
     <input value="${esc(x.n)}" placeholder="Nom" style="padding:10px" oninput="edShift('${x.id}','n',this.value)">
-    <input value="${esc(x.h)}" placeholder="Heures" style="padding:10px;max-width:110px" oninput="edShift('${x.id}','h',this.value)">
+    <input value="${esc(x.h)}" placeholder="ex. 8h – 17h" style="padding:10px;max-width:120px" oninput="edShift('${x.id}','h',this.value)">
     <button class="x" onclick="delShift('${x.id}')" aria-label="Supprimer">🗑️</button></div>`).join('')}
   <div class="row" style="margin-top:12px"><button class="btn soft" onclick="addShift()">+ Ajouter un type</button><button class="btn" onclick="closeSheet();render()">Terminé</button></div>`)}
 function edShift(id,k,v){const x=st.shifts.find(s=>s.id===id);x[k]=v;x.u=Date.now();save()}
@@ -477,7 +493,7 @@ agenda(){
     <div class="cal" ontouchstart="calX=event.touches[0].clientX" ontouchend="calSwipe(event)">${cells}</div>
     ${(y!==t.getFullYear()||m!==t.getMonth())?`<div style="text-align:center;margin-top:8px"><button class="chip" onclick="calToday()">Revenir à aujourd'hui</button></div>`:''}</div>
   <div class="card"><h2>${calSel===tk?'Aujourd\'hui':sel.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase())}<small class="link" onclick="evSheet()">+ Ajouter</small></h2>
-    ${shSel?`<div class="shrow" style="background:${shSel.c}">💼 Horaire : <b>${shLabel(shSel)}</b></div>`:''}
+    ${shSel?`<div class="shrow" style="background:${shSel.c}" onclick="daySheet(calSel)">💼 Horaire : <b>${shLabel(shSel)}</b> <span style="float:right">✏️</span></div>`:`<div class="row" style="margin-bottom:8px"><button class="chip" onclick="daySheet(calSel)">💼 Mettre mon horaire ce jour-là</button></div>`}
     ${dayEv.length?dayEv.map(evRow).join(''):'<div class="mut">Rien de prévu ce jour-là.</div>'}</div>
   ${paint?'':`<div class="card"><h2>💼 Horaire de travail</h2>
     <div class="chips wrap" style="margin-bottom:6px">${st.shifts.map(x=>`<span class="chip" style="background:${x.c};color:#4a3940;box-shadow:none">${shLabel(x)}</span>`).join('')}</div>
@@ -567,7 +583,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.13';
+const APPV='2026-10-31.14';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
