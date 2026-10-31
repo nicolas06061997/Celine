@@ -1,9 +1,8 @@
 // Envoie chaque matin une notification pour les anniversaires (jour J et veille).
-// Lancé par .github/workflows/anniversaires.yml. Clé privée : secret GitHub VAPID_PRIVATE.
+// Lancé par .github/workflows/anniversaires.yml. La clé d'envoi est dans FB/familles/FAM-pushkey (créée par l'appli).
 const webpush = require('web-push');
 const FB = 'https://celine-fcdb2-default-rtdb.europe-west1.firebasedatabase.app';
 const FAM = 'mk4tq-zr8wd-h3pxn-97cfa';
-const PUB = 'BFTvZTIh2aUkk9nV12w9d9lKZTNCteSiai2ysh2Hk39XvW3q58awzFHLEPRBAqqfaqm4aqNUGeKMjBAv_1BcT7M';
 
 // Date du jour en Belgique (le serveur GitHub est à l'heure UTC).
 function partsBE(d) {
@@ -30,8 +29,9 @@ async function main() {
   const msgs = messages(data.events, new Date());
   console.log(msgs.length + ' message(s)', msgs.map(m => m.body));
   if (!msgs.length) return;
-  if (!process.env.VAPID_PRIVATE) throw new Error('Secret VAPID_PRIVATE manquant');
-  webpush.setVapidDetails('https://nicolas06061997.github.io/Celine/', PUB, process.env.VAPID_PRIVATE);
+  const key = await (await fetch(FB + '/familles/' + FAM + '-pushkey.json')).json();
+  if (!key || !key.pub || !key.priv) { console.log('Personne n’a encore activé les notifications.'); return; }
+  webpush.setVapidDetails('https://nicolas06061997.github.io/Celine/', key.pub, key.priv);
   const subs = await (await fetch(FB + '/familles/' + FAM + '-push.json')).json() || {};
   for (const [id, s] of Object.entries(subs)) {
     for (const m of msgs) {

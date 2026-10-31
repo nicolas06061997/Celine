@@ -35,7 +35,7 @@ La session de développement ne peut pas joindre Firebase : tester avec un faux 
 « Plus tard » le cache 24 h (clé `celine-ins`). Un iPhone ne permet pas d'installer automatiquement : seulement guider.
 
 ## Notifications d'anniversaire
-Web Push : le téléphone s'abonne (`notifOn()`, clé publique `VAPID`) et range l'abonnement dans `FB/familles/FAM-push/<id>.json`.
-`.github/workflows/anniversaires.yml` lance chaque matin `scripts/anniversaires.js` : jour J et veille des événements `type:'anniv'`.
-Clé privée VAPID : secret GitHub `VAPID_PRIVATE` (jamais dans le code). Abonnements morts (404/410) supprimés.
+Web Push : le premier téléphone qui active crée la paire de clés (`pushKey()`, WebCrypto) dans `FB/familles/FAM-pushkey` ; chacun s'abonne (`notifOn()`) et range l'abonnement dans `FB/familles/FAM-push/<id>.json`.
+`.github/workflows/anniversaires.yml` lance chaque matin `scripts/anniversaires.js` : jour J et veille des événements `type:'anniv'`. Rappel aussi sur l'accueil le jour J.
+Rien à configurer côté GitHub. Abonnements morts (404/410) supprimés.
 `sw.js` affiche la notification (`push`) et ouvre l'agenda au clic. Sur iPhone : seulement si l'appli est installée (iOS 16.4+).

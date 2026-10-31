@@ -342,6 +342,7 @@ home(){
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
   return `<div class="hero"><div class="hi">${hi} ${who()} 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
   ${installBanner()}
+  ${upcoming().filter(x=>x.n===0&&x.e.type==='anniv').map(x=>`<div class="card" style="background:linear-gradient(135deg,#fff3c4,#ffe0ec);color:#4a3940" onclick="go('agenda')"><h2 style="margin:0">🎂 Aujourd'hui : ${esc(x.e.t)}${x.age?' ('+x.age+(x.age>1?' ans':' an')+')':''}</h2><div class="mut" style="color:#7a6670">Pense à lui souhaiter 💗</div></div>`).join('')}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
     ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(t=>taskRow(t)).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
     ${anyw.length?`<div class="cat">🗓️ Cette semaine, quand tu veux</div>${anyw.map(t=>taskRow(t)).join('')}`:''}
@@ -495,7 +496,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.10';
+const APPV='2026-10-31.11';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -578,7 +579,18 @@ setSy('');startStream();sync();
 // ---------- Notifications d'anniversaire ----------
 // Le téléphone s'abonne (Web Push) ; l'abonnement est rangé dans FB/familles/FAM-push/.
 // Chaque matin, GitHub Actions (scripts/anniversaires.js) lit l'agenda et envoie la notification.
-const VAPID='BFTvZTIh2aUkk9nV12w9d9lKZTNCteSiai2ysh2Hk39XvW3q58awzFHLEPRBAqqfaqm4aqNUGeKMjBAv_1BcT7M';
+// La clé d'envoi est fabriquée par le premier téléphone qui active les notifications
+// et rangée dans FB/familles/FAM-pushkey (rien à configurer).
+const keyURL=FB+'/familles/'+FAM+'-pushkey.json';
+const b64e=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function pushKey(){
+  let k=await (await fetch(keyURL,{cache:'no-store'})).json();
+  if(k&&k.pub&&k.priv)return k.pub;
+  const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign']);
+  const pub=b64e(await crypto.subtle.exportKey('raw',kp.publicKey)),priv=(await crypto.subtle.exportKey('jwk',kp.privateKey)).d;
+  await fetch(keyURL,{method:'PUT',body:JSON.stringify({pub,priv,t:Date.now()})});
+  k=await (await fetch(keyURL,{cache:'no-store'})).json();return k.pub;  // si l'autre téléphone a été plus rapide, on prend la sienne
+}
 const pushURL=id=>FB+'/familles/'+FAM+'-push/'+id+'.json';
 const notifOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
 function b64u(s){const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))}
@@ -589,7 +601,9 @@ async function notifOn(){
   try{
     const p=await Notification.requestPermission();if(p!=='granted'){toast('Notifications refusées. Autorise-les dans les réglages du téléphone.');return}
     const reg=await navigator.serviceWorker.ready;
-    const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
+    const pub=await pushKey();let sub=await reg.pushManager.getSubscription();
+    if(sub&&(!sub.options.applicationServerKey||b64e(sub.options.applicationServerKey)!==pub)){await sub.unsubscribe();sub=null}
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(pub)});
     const j=sub.toJSON(),r=await fetch(pushURL(hashStr(j.endpoint)),{method:'PUT',body:JSON.stringify({endpoint:j.endpoint,keys:j.keys,name:st.name||'',t:Date.now()})});
     if(!r.ok)throw r.status;
     st.notif=1;saveLocal();toast('🔔 Notifications activées !');settings();

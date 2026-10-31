@@ -18,7 +18,5 @@ jobs:
           node-version: 20
       - run: npm install --no-save web-push@3.6.7
       - run: node scripts/anniversaires.js
-        env:
-          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
       # GitHub arrête les tâches planifiées après 60 jours sans changement : ceci les garde actives.
       - uses: gautamkrishnar/keepalive-workflow@v2
