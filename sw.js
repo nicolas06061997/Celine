@@ -19,7 +19,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   e.respondWith(fetch(req, { cache: 'no-cache' }).then(r => {
-    if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+    if (r.ok && !new URL(req.url).search) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
     return r;
   }).catch(() => caches.match(req, { ignoreSearch: true }).then(r =>
     r || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))));

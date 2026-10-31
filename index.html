@@ -46,8 +46,8 @@ main{padding:8px 16px 20px;max-width:640px;margin:0 auto}
 .item .e{font-size:22px;width:28px;text-align:center}
 .item.done .t{text-decoration:line-through;color:var(--mut)}
 .item.done .e{opacity:.5}
-.ck{width:28px;height:28px;flex:none;border-radius:50%;border:2.5px solid var(--pri2);display:grid;place-items:center;font-size:15px;color:#fff;transition:.15s}
-.done .ck{background:var(--ok);border-color:var(--ok)}
+.ck{width:28px;height:28px;flex:none;border-radius:50%;border:2.5px solid var(--pri2);display:grid;place-items:center;font-size:15px;color:transparent;transition:.15s}
+.done .ck{background:var(--ok);border-color:var(--ok);color:#fff}
 .x{width:32px;height:32px;flex:none;border-radius:50%;color:var(--mut);font-size:18px}
 .rep{font-size:12px;color:var(--mut)}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
@@ -143,15 +143,15 @@ const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}};
 // ---------- Idées ----------
 const SUG=[['🧹','Passer l\'aspirateur'],['🪣','Laver le sol'],['🪶','Faire la poussière'],['🛁','Nettoyer la salle de bain'],['🚽','Nettoyer les toilettes'],['🛏️','Changer les draps'],['🧺','Faire une lessive'],['👕','Repassage'],['🪟','Laver les vitres'],['🗑️','Sortir les poubelles'],['🧊','Nettoyer le frigo'],['🍳','Nettoyer la cuisine'],['🪴','Arroser les plantes'],['♻️','Trier le recyclage'],['🧽','Nettoyer le four'],['🛋️','Ranger le salon'],['👟','Ranger l\'entrée'],['🐾','Litière / animaux']];
 const CATS=[
- ['Fruits & légumes','🥦','pomme banane poire orange citron fraise raisin kiwi melon pêche abricot fruit légume salade tomate carotte courgette poivron oignon ail échalote pomme de terre patate brocoli chou épinard concombre champignon poireau avocat aubergine haricot persil basilic herbe'],
+ ['Fruits & légumes','🥦','pomme banane poire orange citron fraise raisin kiwi melon pêche abricot fruit légume salade tomate carotte courgette poivron oignon ail échalote pomme de terre patate brocoli chou épinard concombre champignon poireau avocat aubergine haricot persil basilic herbe laitue framboise myrtille mangue ananas betterave radis céleri navet chicon endive fenouil courge potiron clémentine mandarine prune cerise noix'],
  ['Boulangerie','🥖','pain baguette croissant brioche biscotte pain de mie viennoiserie'],
  ['Viande & poisson','🥩','viande poulet boeuf bœuf porc jambon steak haché saucisse lardon dinde poisson saumon thon crevette cabillaud charcuterie'],
  ['Crèmerie','🧀','lait beurre fromage yaourt yogourt crème oeuf œuf oeufs œufs emmental mozzarella gruyère dessert lacté'],
- ['Épicerie','🍝','pâtes riz farine sucre sel poivre huile vinaigre sauce conserve céréale café thé chocolat biscuit confiture miel épice moutarde ketchup mayonnaise semoule lentille'],
+ ['Épicerie','🍝','pâtes riz farine sucre sel poivre huile vinaigre sauce conserve céréale café thé chocolat biscuit confiture miel épice moutarde ketchup mayonnaise semoule lentille gâteau chips bonbon soupe bouillon olive compote cornichon thon chocolat tartiner'],
  ['Boissons','🥤','eau jus soda coca bière vin sirop limonade'],
  ['Surgelés','🧊','surgelé glace pizza frites'],
  ['Hygiène & beauté','🧴','shampoing shampooing gel douche savon dentifrice brosse déodorant coton maquillage crème visage rasoir mouchoir serviette hygiénique tampon'],
- ['Maison & entretien','🧽','papier toilette essuie-tout sac poubelle lessive adoucissant liquide vaisselle éponge javel nettoyant ampoule pile'],
+ ['Maison & entretien','🧽','papier toilette essuie-tout sac poubelle lessive adoucissant liquide vaisselle éponge javel nettoyant ampoule pile aluminium allumette bougie sopalin'],
  ['Bébé & animaux','🍼','couche lingette lait bébé croquette pâtée litière'],
  ['Autre','🛍️','']];
 const MEALS=['Pâtes bolognaise','Poulet rôti & pommes de terre','Croque-monsieur & salade','Quiche lorraine','Gratin dauphinois','Saumon & riz','Soupe de légumes','Lasagnes','Chili con carne','Omelette & salade','Boulettes sauce tomate','Raclette','Pizza maison','Stoemp & saucisse','Hachis parmentier','Curry de poulet','Wraps poulet crudités','Carbonnade & frites','Salade composée','Risotto aux champignons','Poisson pané & purée','Tacos maison','Crêpes salées','Vol-au-vent'];
@@ -235,9 +235,9 @@ function saveTask(){
 function delTask(){gone(ed.id);st.tasks=st.tasks.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Tâche supprimée')}
 
 // ---------- Courses ----------
-function catOf(name){const n=' '+name.toLowerCase()+' ';
+function catOf(name){const n=' '+name.toLowerCase().replace(/['’\-]/g,' ')+' ';
   let best=CATS.length-1,len=0;
-  CATS.forEach((c,i)=>c[2].split(' ').forEach(k=>{if(k&&n.includes(k)&&k.length>len){best=i;len=k.length}}));
+  CATS.forEach((c,i)=>c[2].split(' ').forEach(k=>{if(k&&n.includes(' '+k)&&k.length>len){best=i;len=k.length}}));
   return best}
 function addItem(name){
   name=(name||'').trim();if(!name)return;
@@ -284,13 +284,13 @@ function nextOcc(e){
   const [y,m,d]=e.date.split('-').map(Number);
   let dt=new Date(y,m-1,d);
   if(e.yearly){dt=new Date(t.getFullYear(),m-1,d);if(dt<t)dt=new Date(t.getFullYear()+1,m-1,d)}
-  return {dt,n:Math.round((dt-t)/864e5),age:e.yearly&&y>1900?dt.getFullYear()-y:0};
+  return {dt,n:Math.round((dt-t)/864e5),age:e.type==='anniv'&&y>1900&&y<t.getFullYear()?dt.getFullYear()-y:0};
 }
 function upcoming(){return st.events.map(e=>({e,...nextOcc(e)})).filter(x=>x.n>=-1).sort((a,b)=>a.n-b.n||(a.e.time||'').localeCompare(b.e.time||''))}
 function when(n){return n<0?'Hier':n===0?'Aujourd\'hui !':n===1?'Demain':'Dans '+n+' jours'}
 function evRow(x){const ty=TYPES.find(t=>t[0]===x.e.type)||TYPES[4];
   return `<div class="ev" onclick="evSheet('${x.e.id}')"><div class="d"><b>${x.dt.getDate()}</b><span>${MOIS[x.dt.getMonth()]}</span></div>
-  <div style="flex:1;min-width:0"><div style="font-weight:700;overflow-wrap:anywhere">${ty[1]} ${esc(x.e.t)}${x.age?' <span class="mut">('+x.age+' ans)</span>':''}</div>
+  <div style="flex:1;min-width:0"><div style="font-weight:700;overflow-wrap:anywhere">${ty[1]} ${esc(x.e.t)}${x.age?' <span class="mut">('+x.age+(x.age>1?' ans':' an')+')</span>':''}</div>
   <div class="mut">${x.e.time?'🕐 '+esc(x.e.time)+' · ':''}<span class="tag ${x.n<=1?'now':''}">${when(x.n)}</span></div></div></div>`}
 function evSheet(id){
   const e=id?st.events.find(x=>x.id===id):{t:'',date:ymd(new Date()),time:'',type:'rdv',yearly:false};
@@ -317,7 +317,7 @@ home(){
   const d=new Date(),h=d.getHours(),ti=todayI();
   const hi=h<5?'Bonne nuit':h<12?'Bonjour':h<18?'Bon après-midi':'Bonsoir';
   const doy=Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);
-  const tdy=st.tasks.filter(t=>t.day===ti),dn=tdy.filter(isDone).length;
+  const tdy=st.tasks.filter(t=>t.day===ti),dn=tdy.filter(isDone).length,anyw=st.tasks.filter(t=>t.day===7&&!isDone(t));
   const left=st.shop.filter(i=>!i.done).length;
   const m=st.meals[ti]||{};
   const ev=upcoming().filter(x=>x.n>=0&&x.n<=14).slice(0,4);
@@ -325,7 +325,8 @@ home(){
   return `<div class="hero"><div class="hi">${hi} ${who()} 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
   ${installBanner()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
-    ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(taskRow).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
+    ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(t=>taskRow(t)).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
+    ${anyw.length?`<div class="cat">🗓️ Cette semaine, quand tu veux</div>${anyw.map(t=>taskRow(t)).join('')}`:''}
   </div>
   <div class="grid2">
     <div class="card" onclick="go('courses')"><h2>🛒 Courses</h2><div class="big">${left}</div><div class="mut">article${left>1?'s':''} à acheter</div></div>
@@ -405,7 +406,7 @@ function restore(inp){
   r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);st=def();st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const nm=st.name;st=def();st.name=nm;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 // Le lien peut s'ouvrir n'importe où (WhatsApp, Messenger, Safari, Chrome…) : un grand écran guide pas à pas.
@@ -457,7 +458,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.7';
+const APPV='2026-10-31.8';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -489,6 +490,7 @@ function pack(s){
 }
 function merge(a,b){
   a=a||{};b=b||{};const g={...(a.gone||{})};for(const k in b.gone||{})g[k]=Math.max(g[k]||0,b.gone[k]);
+  const old=Date.now()-60*864e5;for(const k in g)if(g[k]<old)delete g[k];
   const newer=(x,y)=>!x?y:!y?x:((y.u||0)>(x.u||0)?y:x);
   const lst=n=>{const o={...(a[n]||{})};for(const k in b[n]||{})o[k]=newer(o[k],b[n][k]);for(const k in o)if(g[k]!==undefined&&g[k]>=(o[k].u||0))delete o[k];return o};
   const meals={...(a.meals||{})};for(const k in b.meals||{})meals[k]=newer(meals[k],b.meals[k]);
@@ -512,7 +514,9 @@ async function sync(){
     const r=await fetch(famURL(),{cache:'no-store'});if(!r.ok)throw r.status;
     const remote=norm(await r.json())||{},local=pack(st),m=merge(local,remote),ms=JSON.stringify(m);
     if(ms!==JSON.stringify(remote)){const w=await fetch(famURL(),{method:'PUT',body:ms});if(!w.ok)throw w.status}
-    if(ms!==JSON.stringify(local)){unpack(m);tidy();softRender()}
+    // Ce qui a été ajouté pendant l'envoi est gardé (sinon perdu) ; le prochain envoi s'en charge.
+    const now=pack(st),m2=JSON.stringify(now)===JSON.stringify(local)?m:merge(now,m);
+    if(JSON.stringify(m2)!==JSON.stringify(now)){unpack(m2);tidy();softRender()}
     setSy('ok');
   }catch(e){setSy('err')}
   syncing=false;if(again){again=false;sync()}
