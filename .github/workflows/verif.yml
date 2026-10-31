@@ -1,0 +1,14 @@
+name: Vérifier Firebase
+on: push
+jobs:
+  verif:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tester la base
+        run: |
+          DB=https://celine-fcdb2-default-rtdb.europe-west1.firebasedatabase.app
+          echo "Lecture des listes :"; curl -s -w "  -> HTTP %{http_code}\n" "$DB/familles/mk4tq-zr8wd-h3pxn-97cfa.json" | cut -c1-300
+          echo "Écriture test :"; curl -s -w "  -> HTTP %{http_code}\n" -X PUT -d '{"ok":1}' "$DB/familles/test-verification-0000.json"
+          echo "Effacement test :"; curl -s -w "  -> HTTP %{http_code}\n" -X DELETE "$DB/familles/test-verification-0000.json"
+          echo "Accès refusé hors familles (attendu 401) :"; curl -s -w "  -> HTTP %{http_code}\n" "$DB/.json"
+          echo "Site :"; curl -s https://nicolas06061997.github.io/Celine/version.json
