@@ -202,8 +202,9 @@ function ring(p,size=64){const r=size/2-6,c=2*Math.PI*r;
   return `<svg class="ring" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--pri2)" stroke-width="7"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--pri)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c*p} ${c}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${size/4.2}">${Math.round(p*100)}%</text></svg>`}
 
 // ---------- Ménage ----------
-function taskRow(t){
-  return `<div class="item ${isDone(t)?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button><span class="e">${esc(t.e)}</span><span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}</span></div>`}
+function taskRow(t,showDay){
+  return `<div class="item ${isDone(t)?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button><span class="e">${esc(t.e)}</span><span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}${showDay?` <span class="rep">· ${t.day<7?DAYS[t.day]:'Semaine'}</span>`:''}</span><button class="x" onclick="askDelTask('${t.id}')" aria-label="Supprimer">🗑️</button></div>`}
+function askDelTask(id){const t=st.tasks.find(x=>x.id===id);if(t&&confirm('Supprimer « '+t.t+' » ?')){ed={id};delTask()}}
 function toggleTask(id){
   const t=st.tasks.find(x=>x.id===id);if(!t)return;
   t.done=isDone(t)?null:weekKey();t.u=Date.now();buzz();save();render();
@@ -345,9 +346,9 @@ menage(){
   <div class="chips">${[...DAYS.map(d=>d.slice(0,3)),'🗓️ Semaine','Tout'].map((d,i)=>`<button class="chip ${i===dayF?'on':''}" onclick="dayF=${i};render()">${i===ti?'⭐ ':''}${d}${i<8&&cnt(i)?`<span class="n">${cnt(i)}</span>`:''}</button>`).join('')}</div>
   <div class="card">
     <h2>${dayF<7?(dayF===ti?'Aujourd\'hui · ':'')+DAYS[dayF]:dayF===7?'🗓️ N\'importe quand cette semaine':'Toutes les tâches'}</h2>
-    ${sorted.length?sorted.map(t=>dayF===8?taskRow(t).replace('</span></div>',` <span class="rep">· ${t.day<7?DAYS[t.day]:'Semaine'}</span></span></div>`):taskRow(t)).join(''):`<div class="empty"><b>🌷</b>Aucune tâche ici.<br>Appuie sur <b style="display:inline;font-size:inherit;color:var(--pri)">+</b> pour en ajouter une.</div>`}
+    ${sorted.length?sorted.map(t=>taskRow(t,dayF===8)).join(''):`<div class="empty"><b>🌷</b>Aucune tâche ici.<br>Appuie sur <b style="display:inline;font-size:inherit;color:var(--pri)">+</b> pour en ajouter une.</div>`}
   </div>
-  <p class="mut" style="text-align:center">Les tâches 🔁 repartent à zéro chaque lundi.<br>Appuie sur le nom d'une tâche pour la modifier.</p>`;
+  <p class="mut" style="text-align:center">Les tâches 🔁 repartent à zéro chaque lundi.<br>Appuie sur le nom d'une tâche pour la modifier, sur 🗑️ pour la supprimer.</p>`;
 },
 courses(){
   const left=st.shop.filter(i=>!i.done),got=st.shop.filter(i=>i.done);
@@ -456,7 +457,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.5';
+const APPV='2026-10-31.6';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
