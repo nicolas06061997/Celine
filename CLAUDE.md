@@ -19,10 +19,12 @@ L'utilisateur parle français et n'est pas développeur : réponses courtes, en 
 Objet `st` sauvegardé dans `localStorage` clé `celine1` : `tasks` (jour 0-6 = lundi-dimanche, 7 = n'importe quand ; `done` = lundi de la semaine où c'est fait), `shop` (`c` = index dans `CATS`), `hist`, `meals`, `events`, `memo`.
 `tidy()` remet la semaine à zéro. Sauvegarde/restauration en JSON dans les réglages.
 
-## Partage entre deux téléphones
-`FB` (en bas de `index.html`) = https://jsonblob.com/api/jsonBlob (gratuit, sans compte, pas de temps réel : l'appli relit toutes les 8 s).
-« Créer le partage » fait un POST : l'identifiant du blob (en-tête `Location`/`X-jsonblob`) devient le code `fam`, envoyé par lien `#f=<code>`.
+## Partage entre les téléphones de la famille
+Firebase Realtime Database du compte Google de l'utilisateur (projet `celine-fcdb2`, Belgique).
+`FB` = adresse de la base, `FAM` = code fixe : tout le monde qui ouvre l'appli partage `FB/familles/FAM.json`. Un seul lien à envoyer, rien à configurer.
+Écoute en direct (EventSource) + relecture toutes les 30 s.
 Chaque élément a `u` (date de modif.), les suppressions vont dans `gone` : `merge()` garde le plus récent, puis PUT du tout.
 Toute modification doit mettre à jour `u` (ou `mu` pour les repas, `memoU` pour le pense-bête) puis appeler `save()`.
-`name`, `fam`, `mealsAuto`, `noBanner` restent propres à chaque téléphone.
-Non testé en vrai depuis la session de développement (jsonblob.com bloqué) : seulement avec un faux serveur.
+`name`, `mealsAuto`, `noBanner` restent propres à chaque téléphone.
+Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",".write":"$code.length >= 20"}}}}`
+La session de développement ne peut pas joindre Firebase : tester avec un faux serveur (route Playwright).

@@ -157,7 +157,7 @@ function def(){
 }
 let st=(()=>{try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.tasks)return Object.assign(def(),s)}catch(e){}return def()})();
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
-function save(){saveLocal();if(st.fam&&FB){clearTimeout(pushT);pushT=setTimeout(sync,600)}}
+function save(){saveLocal();clearTimeout(pushT);pushT=setTimeout(sync,600)}
 let pushT;
 const gone=id=>{st.gone[id]=Date.now()};
 const who=()=>esc(st.name||'Céline');
@@ -395,7 +395,7 @@ function restore(inp){
   r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm(st.fam?'Effacer les données de ce téléphone ? (Le partage est aussi arrêté sur ce téléphone, l\'autre garde tout.)':'Effacer toutes les données de Céline ? Cette action est définitive.')){st=def();saveLocal();stopStream();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);st=def();st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 let dp=null;
@@ -412,7 +412,7 @@ function installBanner(){if(standalone()||st.noBanner||(!dp&&!isIOS))return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.3';
+const APPV='2026-10-31.4';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -424,11 +424,12 @@ try{const o=localStorage.getItem('celine-v');localStorage.setItem('celine-v',APP
 chkV();setInterval(chkV,30*60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)chkV()});
 
-// ---------- Partage entre deux téléphones (jsonblob.com, gratuit, sans compte) ----------
-// Chaque famille a un code secret = l'identifiant de son « blob » : ses données sont dans FB/<code>.
+// ---------- Partage entre les téléphones de la famille (Firebase Realtime Database) ----------
+// Tous les téléphones qui ouvrent l'appli partagent les mêmes listes : FB/familles/FAM.json.
 // Chaque élément porte sa date de modification (u) ; les suppressions sont notées dans `gone`.
 // La fusion garde toujours la version la plus récente : rien ne se perd si les deux modifient en même temps.
-const FB='https://jsonblob.com/api/jsonBlob';
+const FB='https://celine-fcdb2-default-rtdb.europe-west1.firebasedatabase.app';
+const FAM='mk4tq-zr8wd-h3pxn-97cfa';
 const hk=k=>'k'+encodeURIComponent(k).replace(/\./g,'%2E');
 function norm(x){
   if(x===null||x===undefined||x==='')return undefined;
@@ -457,16 +458,15 @@ function unpack(m){
   st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
   st.gone=m.gone||{};
 }
-const famURL=()=>FB+'/'+st.fam;
-const JH={'Content-Type':'application/json','Accept':'application/json'};
+const famURL=()=>FB+'/familles/'+FAM+'.json';
 let syncing=false,again=false,syncOK=null,needR=false;
-function setSy(t){syncOK=t;const e=$('#sy');if(e)e.textContent=!st.fam||!FB?'':t==='ok'?'☁️ partagé':t==='err'?'⚠️ hors ligne':'☁️ …'}
+function setSy(t){syncOK=t;const e=$('#sy');if(e)e.textContent=t==='ok'?'☁️ partagé':t==='err'?'⚠️ hors ligne':'☁️ …'}
 async function sync(){
-  if(!FB||!st.fam)return;if(syncing){again=true;return}syncing=true;
+  if(syncing){again=true;return}syncing=true;
   try{
-    const r=await fetch(famURL(),{cache:'no-store',headers:{'Accept':'application/json'}});if(!r.ok)throw r.status;
+    const r=await fetch(famURL(),{cache:'no-store'});if(!r.ok)throw r.status;
     const remote=norm(await r.json())||{},local=pack(st),m=merge(local,remote),ms=JSON.stringify(m);
-    if(ms!==JSON.stringify(remote)){const w=await fetch(famURL(),{method:'PUT',headers:JH,body:ms});if(!w.ok)throw w.status}
+    if(ms!==JSON.stringify(remote)){const w=await fetch(famURL(),{method:'PUT',body:ms});if(!w.ok)throw w.status}
     if(ms!==JSON.stringify(local)){unpack(m);tidy();softRender()}
     setSy('ok');
   }catch(e){setSy('err')}
@@ -475,39 +475,21 @@ async function sync(){
 const typing=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&!$('#sh').contains(a)};
 function softRender(){const a=document.activeElement;if(a&&a.id==='ni'){const v=a.value;render();const n=$('#ni');if(n){n.value=v;n.focus()}return}if(typing())needR=true;else render()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(needR&&!typing()){needR=false;render()}},250));
-// Pas d'écoute en direct : l'appli regarde toutes les 8 secondes quand elle est ouverte.
-function startStream(){}function stopStream(){}
-const famLink=()=>location.origin+location.pathname+'#f='+st.fam;
+// Écoute en direct : dès que l'autre téléphone change quelque chose, on récupère.
+let es=null,esT;
+function startStream(){stopStream();if(!window.EventSource)return;
+  try{es=new EventSource(famURL());const on=()=>{clearTimeout(esT);esT=setTimeout(sync,300)};es.addEventListener('put',on);es.addEventListener('patch',on)}catch(e){}}
+function stopStream(){if(es){es.close();es=null}}
 function shareBlock(){
-  if(!FB)return '';
-  if(!st.fam)return `<div class="lbl">👫 Partager avec ma famille</div>
-    <p class="mut">Ton mari (ou ta femme) voit tout ce que tu ajoutes : courses, ménage, repas, agenda. Et l'inverse aussi.</p>
-    <div class="row"><button class="btn" onclick="createFam()">💞 Créer le partage</button></div>
-    <div class="row" style="margin-top:8px"><button class="btn soft" onclick="askJoin()">🔑 J'ai reçu un code</button></div>`;
   return `<div class="lbl">👫 Partage ${syncOK==='ok'?'actif ✅':syncOK==='err'?'(pas de connexion) ⚠️':''}</div>
-    <p class="mut">Envoie ce lien à l'autre téléphone : il l'ouvre et vous voyez tous les deux la même chose.</p>
-    <div class="code">${esc(st.fam)}</div>
-    <div class="row" style="margin-top:8px"><button class="btn" onclick="sendFam()">📤 Envoyer le lien</button></div>
-    <div class="row"><button class="btn del" style="flex:1" onclick="leaveFam()">Arrêter le partage sur ce téléphone</button></div>`;
+    <p class="mut">Tout le monde qui ouvre Céline voit les mêmes listes. Pour l'installer sur un autre téléphone, envoie le lien.</p>
+    <div class="row"><button class="btn" onclick="sendApp()">📤 Envoyer le lien de l'appli</button></div>`;
 }
-function joinFam(code){if(!code)return;st.fam=code;saveLocal();setSy('');startStream();sync().then(()=>{render();toast(syncOK==='ok'?'Partage activé 💞':'Pas de connexion, on réessaiera')})}
-async function createFam(){toast('Création du partage…');
-  try{const r=await fetch(FB,{method:'POST',headers:JH,body:JSON.stringify(pack(st))});if(!r.ok)throw r.status;
-    const h=r.headers.get('X-jsonblob')||r.headers.get('X-jsonblob-id')||(r.headers.get('Location')||'').split('/').pop();
-    if(!h)throw 'id';joinFam(h);setTimeout(settings,400)}
-  catch(e){toast('Le partage n\'a pas pu être créé. Vérifie ta connexion et réessaie.')}}
-function askJoin(){const v=prompt('Colle ici le lien ou le code reçu :');if(!v)return;const m=v.trim().match(/(?:f=)?([A-Za-z0-9-]{8,})\s*$/);if(!m){toast('Code non reconnu ❌');return}joinFam(m[1]);closeSheet()}
-function sendFam(){const u=famLink(),txt='💞 Rejoins ma liste Céline (courses, ménage, repas, agenda) : '+u;
+function sendApp(){const u=location.origin+location.pathname,txt='🌸 Notre appli Céline (courses, ménage, repas, agenda) : '+u;
   if(navigator.share)navigator.share({text:txt}).catch(()=>{});else navigator.clipboard.writeText(u).then(()=>toast('Lien copié 📋'),()=>prompt('Copie ce lien :',u))}
-function leaveFam(){if(!confirm('Arrêter le partage sur ce téléphone ? Les listes restent ici, mais ne se mettent plus à jour.'))return;stopStream();st.fam='';saveLocal();setSy('');closeSheet();render()}
-// Lien reçu (…#f=code) : on propose de rejoindre la liste commune.
-function checkHash(){const m=location.hash.match(/f=([A-Za-z0-9-]{8,})/);
-  if(m&&FB&&m[1]!==st.fam&&confirm('Rejoindre la liste partagée ? Tout ce qui est déjà sur ce téléphone sera ajouté à la liste commune.')){st.fam=m[1];saveLocal();return true}}
-checkHash();
-addEventListener('hashchange',()=>{if(checkHash())joinFam(st.fam)});
-if(FB&&st.fam){setSy('');startStream();sync()}
-setInterval(()=>{if(!document.hidden)sync()},8000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else if(st.fam){startStream();sync()}});
+setSy('');startStream();sync();
+setInterval(()=>{if(!document.hidden)sync()},30000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else{startStream();sync()}});
 addEventListener('online',()=>sync());
 render();setSy(syncOK);
 </script>
