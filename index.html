@@ -204,7 +204,7 @@ function ring(p,size=64){const r=size/2-6,c=2*Math.PI*r;
 // ---------- Ménage ----------
 function taskRow(t,showDay){
   return `<div class="item ${isDone(t)?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button><span class="e">${esc(t.e)}</span><span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}${showDay?` <span class="rep">· ${t.day<7?DAYS[t.day]:'Semaine'}</span>`:''}</span><button class="x" onclick="askDelTask('${t.id}')" aria-label="Supprimer">🗑️</button></div>`}
-function askDelTask(id){const t=st.tasks.find(x=>x.id===id);if(t&&confirm('Supprimer « '+t.t+' » ?')){ed={id};delTask()}}
+function askDelTask(id){ed={id};delTask()}
 function toggleTask(id){
   const t=st.tasks.find(x=>x.id===id);if(!t)return;
   t.done=isDone(t)?null:weekKey();t.u=Date.now();buzz();save();render();
@@ -457,7 +457,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.6';
+const APPV='2026-10-31.7';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
