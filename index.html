@@ -634,13 +634,19 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.1';
+const APPV='2026-11-01.2';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
 function chkV(man){if(SWR)SWR.update().catch(()=>{});
   fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
     if(!j||!j.v||j.v===APPV){if(man)toast('Céline est à jour ✓');return}
+    // Mise à jour automatique : on recharge tout de suite, sauf si on est en train d'écrire ou qu'une fenêtre est ouverte.
+    // (Une seule tentative par version, pour ne jamais boucler.)
+    let tried='';try{tried=localStorage.getItem('celine-auto')||''}catch(x){}
+    const busy=$('#sh').classList.contains('on')||['INPUT','TEXTAREA'].includes((document.activeElement||{}).tagName);
+    if(tried!==j.v&&!busy){try{localStorage.setItem('celine-auto',j.v)}catch(x){}
+      (SWR?SWR.update().catch(()=>{}):Promise.resolve()).then(()=>location.reload());return}
     if(man)closeSheet();$('#updn').textContent=j.notes||'';$('#upd').classList.add('on')}).catch(()=>{if(man)toast('Pas de connexion')})}
 try{const o=localStorage.getItem('celine-v');localStorage.setItem('celine-v',APPV);if(o&&o!==APPV)setTimeout(()=>toast('Céline a été mise à jour ✨'),600)}catch(e){}
 chkV();setInterval(chkV,30*60000);

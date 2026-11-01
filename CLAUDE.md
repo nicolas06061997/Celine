@@ -9,6 +9,7 @@ L'utilisateur parle français et n'est pas développeur : réponses courtes, en 
 ## À chaque modification de l'appli
 1. Changer `APPV` en bas de `index.html` **et** `v` dans `version.json` (même valeur, format `AAAA-MM-JJ.n`, différente à chaque fois).
    Mettre dans `notes` de `version.json` une phrase courte : elle s'affiche dans « Nouvelle mise à jour disponible ».
+   L'appli se recharge toute seule quand une nouvelle version est publiée (une fois par version, clé `celine-auto`), sinon bandeau.
    Le service worker est enregistré en `sw.js?v=APPV` : son cache (`celine-<version>`) change tout seul.
 2. Commit + push sur `main` ; GitHub Pages publie en 2-3 minutes.
 
