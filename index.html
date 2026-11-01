@@ -109,6 +109,13 @@ nav button.on b{filter:none;opacity:1;transform:translateY(-2px) scale(1.12)}
 textarea{min-height:90px;resize:vertical}
 .link{color:var(--pri);font-weight:700;font-size:14px}
 .ring{flex:none}
+.hbtn{display:flex;gap:8px}
+.pal{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;margin:6px 0 12px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--mut)}
+.sw i{width:46px;height:46px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.15);border:3px solid transparent}
+.sw.on{color:var(--ink)}.sw.on i{border-color:var(--card);outline:3px solid var(--pri)}
+.sw-free{display:flex;align-items:center;gap:12px;background:var(--pri3);border-radius:14px;padding:8px 12px;font-weight:700}
+.sw-free.on{outline:2.5px solid var(--pri)}.sw-free input{width:44px;height:44px;padding:0;border:0;background:none;border-radius:50%}
 .cal-h{display:flex;align-items:center;justify-content:space-between}
 .cal-h b{font-size:19px;text-transform:capitalize}
 .nb{width:42px;height:42px;border-radius:50%;background:var(--pri3);font-size:24px;font-weight:700;color:var(--pri)}
@@ -135,7 +142,7 @@ textarea{min-height:90px;resize:vertical}
 </style>
 </head>
 <body>
-<header><h1>Céline <span id="hsym">✿</span> <small id="sy" onclick="settings()"></small></h1><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></header>
+<header><h1>Céline <span id="hsym">✿</span> <small id="sy" onclick="settings()"></small></h1><div class="hbtn"><button class="gear" onclick="colorSheet()" aria-label="Couleurs">🎨</button><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></div></header>
 <main id="main"></main>
 <button id="fab" onclick="fab()" aria-label="Ajouter">+</button>
 <nav>
@@ -457,41 +464,66 @@ function alertCard(){
   </div>`;
 }
 
-// ---------- Couleurs (propres à chaque téléphone) ----------
-// « rose » = le style d'origine (fleurs). Les autres remplacent couleurs et fleurs par des motifs géométriques.
-const THEMES={
-  rose:{n:'Rose',e:'🌸',hi:'🌸',sym:'✿',meta:'#e8779c'},
-  bleu:{n:'Bleu',e:'🌊',hi:'👋',sym:'✦',meta:'#3b6fb6',pri:'#3b6fb6',pri2:'#d3e3f6',pri3:'#eef4fb',bg:'#f3f7fc',hA:'#76a5dc',hB:'#335f9e',aA:'#ffa26b',aB:'#ef6f3c',p:['#d3e2f4','#c2d6ee','#e2ebf7'],
-        dk:{pri:'#82aeea',pri2:'#2c3a4d',pri3:'#222b37',bg:'#151a21',card:'#1f2630',p:['#26323f','#2d3b4b','#202a35']}},
-  vert:{n:'Vert',e:'🌿',hi:'🌿',sym:'✦',meta:'#4f8a6b',pri:'#4f8a6b',pri2:'#d4e8dc',pri3:'#eef6f1',bg:'#f3f8f4',hA:'#86b99c',hB:'#3f7559',aA:'#f5b062',aB:'#e07b39',p:['#d4e7da','#c5ddcd','#e3efe7'],
-        dk:{pri:'#7fc29d',pri2:'#2b3d33',pri3:'#212c26',bg:'#141a17',card:'#1e2621',p:['#24322a','#2b3b31','#1f2a24']}},
-  ardoise:{n:'Ardoise',e:'🌑',hi:'☕',sym:'✦',meta:'#4a5568',pri:'#4a5568',pri2:'#dde1e7',pri3:'#f0f2f5',bg:'#f4f5f7',hA:'#7a8699',hB:'#2d3748',aA:'#f6ad55',aB:'#e2803a',p:['#dfe3e9','#d3d8e0','#e8ebef'],
-        dk:{pri:'#a3b1c6',pri2:'#323844',pri3:'#262b33',bg:'#15171b',card:'#20242a',p:['#2a2f37','#323844','#24282f']}}};
-const TH=()=>THEMES[st.theme]||THEMES.rose;
-// Motif géométrique (cercles, carrés arrondis, croix, points) en SVG.
-function geoTile(c){const [a,b,d]=c;let g='<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><g fill="none" stroke-width="3" stroke-linecap="round">';
+// ---------- Couleurs et motifs (propres à chaque téléphone, jamais partagés) ----------
+// st.col = couleur choisie (hex) ou 'rose' (style d'origine) ; st.motif = 'fleurs' | 'formes' | 'uni'.
+const PALETTE=[['Rose','rose'],['Framboise','#d6336c'],['Corail','#ec6a5c'],['Pêche','#e0844f'],['Or','#c08a12'],['Sauge','#4f8a6b'],['Menthe','#2a9d8f'],['Turquoise','#1c93a8'],['Ciel','#3a86c8'],['Marine','#2f4f8f'],['Lavande','#8a6fd1'],['Violet','#6b3fa0'],['Chocolat','#8b5e3c'],['Ardoise','#4a5568'],['Noir','#2b2b2b']];
+const OLDTH={bleu:'#3b6fb6',vert:'#4f8a6b',ardoise:'#4a5568'};
+if(st.theme&&!st.col){st.col=OLDTH[st.theme]||'rose';st.motif=st.theme==='rose'?'fleurs':'formes';delete st.theme;saveLocal()}
+const colOf=()=>st.col||'rose',motOf=()=>st.motif||'fleurs';
+const TH=()=>{const m=motOf();return {hi:m==='fleurs'?'🌸':'👋',sym:m==='fleurs'?'✿':'✦',neutral:m!=='fleurs'}};
+// Petits calculs de couleurs
+const rgb=h=>{h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16))};
+const hex=a=>'#'+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+const mix=(a,b,t)=>{const x=rgb(a),y=rgb(b);return hex(x.map((v,i)=>v+(y[i]-v)*t))};
+const lum=h=>{const [r,g,b]=rgb(h);return (0.299*r+0.587*g+0.114*b)/255};
+const hue=h=>{const [r,g,b]=rgb(h).map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(!d)return 0;let x=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return (x*60+360)%360};
+// Motifs en SVG
+const svgURL=g=>'url("data:image/svg+xml,'+encodeURIComponent(g)+'")';
+function flower(cx,cy,r,pe,ce,rot){let g=`<g transform="translate(${cx} ${cy}) rotate(${rot})">`;for(let k=0;k<5;k++)g+=`<ellipse cx="0" cy="${-r*.62}" rx="${r*.42}" ry="${r*.62}" fill="${pe}" transform="rotate(${k*72})"/>`;return g+`<circle r="${r*.3}" fill="${ce}"/></g>`}
+const leaf=(cx,cy,l,rot,c)=>`<path d="M0 0 Q${l/2} ${-l*.35} ${l} 0 Q${l/2} ${l*.35} 0 0Z" fill="${c}" transform="translate(${cx} ${cy}) rotate(${rot})"/>`;
+const heart=(cx,cy,z,c)=>`<path d="M0 ${z*.3} C${-z*.9} ${-z*.3} ${-z*.35} ${-z*.95} 0 ${-z*.35} C${z*.35} ${-z*.95} ${z*.9} ${-z*.3} 0 ${z*.3}Z" fill="${c}" transform="translate(${cx} ${cy})"/>`;
+const dots=c=>[[100,30,2.5],[200,92,2],[30,118,2.2],[150,110,1.8],[70,220,2],[225,170,2.4],[120,160,1.6]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`).join('');
+function flowerTile([p1,p2,p3,ce,lf,ht,dt]){return svgURL('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">'+leaf(52,62,26,-35,lf)+leaf(40,50,22,200,lf)+flower(50,48,22,p1,ce,10)+leaf(178,150,24,30,lf)+flower(172,142,16,p2,ce,30)+flower(118,206,11,p3,ce,0)+flower(214,30,9,p2,ce,20)+flower(18,170,8,p3,ce,40)+heart(140,70,9,ht)+heart(84,128,6,ht)+heart(226,214,7,ht)+dots(dt)+'</svg>')}
+function geoTile([a,b,d]){let g='<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><g fill="none" stroke-width="3" stroke-linecap="round">';
   g+=`<circle cx="48" cy="52" r="16" stroke="${a}"/><rect x="160" y="132" width="26" height="26" rx="7" stroke="${b}" transform="rotate(18 173 145)"/><circle cx="196" cy="34" r="8" stroke="${b}"/>`;
   g+=`<path d="M112 196l10 -16l10 16z" stroke="${a}" stroke-linejoin="round"/><path d="M128 64h14M135 57v14" stroke="${b}"/><path d="M28 168h12M34 162v12" stroke="${a}"/><path d="M208 210l14 -14" stroke="${d}"/><path d="M80 120l14 -14" stroke="${d}"/></g>`;
-  for(const [x,y,r] of [[100,30,3],[200,92,2.5],[30,118,2.6],[150,104,2.2],[64,220,2.6],[226,170,3]])g+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${a}"/>`;
-  return 'url("data:image/svg+xml,'+encodeURIComponent(g+'</svg>')+'")'}
-const HERO_GEO='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><g fill="none" stroke="rgba(255,255,255,.28)" stroke-width="10"><circle cx="100" cy="50" r="38"/></g><g fill="none" stroke="rgba(255,255,255,.2)" stroke-width="6"><circle cx="40" cy="112" r="18"/><rect x="112" y="104" width="24" height="24" rx="6" transform="rotate(20 124 116)"/></g></svg>')+'")';
+  return svgURL(g+dots(a)+'</svg>')}
+const HERO_FL=svgURL('<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140">'+leaf(70,96,30,20,'rgba(255,255,255,.25)')+flower(84,52,34,'rgba(255,255,255,.28)','rgba(255,240,200,.55)',15)+flower(28,104,16,'rgba(255,255,255,.22)','rgba(255,240,200,.5)',40)+flower(124,118,11,'rgba(255,255,255,.2)','rgba(255,240,200,.5)',0)+'</svg>');
+const HERO_GEO=svgURL('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><g fill="none" stroke="rgba(255,255,255,.28)" stroke-width="10"><circle cx="100" cy="50" r="38"/></g><g fill="none" stroke="rgba(255,255,255,.2)" stroke-width="6"><circle cx="40" cy="112" r="18"/><rect x="112" y="104" width="24" height="24" rx="6" transform="rotate(20 124 116)"/></g></svg>');
 function applyTheme(){
-  const t=TH(),el=$('#thm')||document.head.appendChild(Object.assign(document.createElement('style'),{id:'thm'}));
-  $('#hsym').textContent=t.sym;const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t.meta;
-  if(!t.pri){el.textContent='';return}
-  const v=(o,pat)=>`--pri:${o.pri};--pri2:${o.pri2};--pri3:${o.pri3};--bg:${o.bg};${o.card?'--card:'+o.card+';':''}--pat:${pat};--line:${o.pri2};--sh:0 4px 18px ${o.pri}22`;
-  el.textContent=`:root:root{${v(t,geoTile(t.p))}}
-@media (prefers-color-scheme:dark){:root:root{${v(t.dk,geoTile(t.dk.p))};--ink:#eef1f5;--mut:#9aa5b4}}
-.hero{background:${HERO_GEO} right -18px top -22px/150px no-repeat,linear-gradient(135deg,${t.hA},${t.hB})}
-.alert{background:linear-gradient(135deg,${t.aA},${t.aB});box-shadow:0 8px 24px ${t.aB}55}
-.bar i{background:linear-gradient(90deg,${t.hA},var(--pri))}
-nav{box-shadow:0 -4px 20px ${t.pri}1f}#fab{box-shadow:0 8px 22px ${t.pri}66}
-#ins{background:linear-gradient(160deg,${t.pri2},${t.bg} 55%)}#ins .st .num{background:${t.pri}}#ins .st{box-shadow:0 4px 18px ${t.pri}26}`;
+  const el=$('#thm')||document.head.appendChild(Object.assign(document.createElement('style'),{id:'thm'}));
+  const m=motOf(),t=TH();$('#hsym').textContent=t.sym;
+  const meta=document.querySelector('meta[name=theme-color]');
+  if(colOf()==='rose'&&m==='fleurs'){el.textContent='';if(meta)meta.content='#e8779c';return}   // style d'origine
+  let c=colOf()==='rose'?'#e8779c':colOf();while(lum(c)>.6)c=mix(c,'#000000',.12);                    // assez foncé pour le texte blanc
+  if(meta)meta.content=c;
+  const W='#ffffff',K='#121214',hu=hue(c),warm=hu<50||hu>320;
+  const aA=warm?'#9d7bf0':'#ffa26b',aB=warm?'#6a4fd6':'#ef6f3c';
+  const L={pri:c,pri2:mix(c,W,.78),pri3:mix(c,W,.9),bg:mix(c,W,.94)};
+  const D={pri:mix(c,W,.3),pri2:mix(c,K,.58),pri3:mix(c,K,.8),bg:mix(c,K,.9),card:mix(c,'#1e1e22',.86)};
+  const pat=(dk)=>m==='uni'?'none':m==='fleurs'
+    ?(dk?flowerTile([mix(c,K,.6),mix(c,K,.55),mix(c,K,.68),'#6b5530','#2f3d33',mix(c,K,.5),mix(c,K,.62)]):flowerTile([mix(c,W,.72),mix(c,W,.64),mix(c,W,.82),'#f7d58a','#d5e8d4',mix(c,W,.56),mix(c,W,.68)]))
+    :(dk?geoTile([mix(c,K,.72),mix(c,K,.64),mix(c,K,.8)]):geoTile([mix(c,W,.7),mix(c,W,.6),mix(c,W,.8)]));
+  const v=(o,dk)=>`--pri:${o.pri};--pri2:${o.pri2};--pri3:${o.pri3};--bg:${o.bg};${o.card?'--card:'+o.card+';':''}--pat:${pat(dk)};--line:${o.pri2};--sh:0 4px 18px ${c}22`;
+  el.textContent=`:root:root{${v(L)}}
+@media (prefers-color-scheme:dark){:root:root{${v(D,1)};--ink:#f1eef2;--mut:#a39ca6}}
+.hero{background:${m==='fleurs'?HERO_FL+' right -18px top -22px/150px':m==='formes'?HERO_GEO+' right -18px top -22px/150px':'none'} no-repeat,linear-gradient(135deg,${mix(c,W,.3)},${mix(c,'#000000',.15)})}
+.alert{background:linear-gradient(135deg,${aA},${aB});box-shadow:0 8px 24px ${aB}55}
+.bar i{background:linear-gradient(90deg,${mix(c,W,.35)},var(--pri))}
+nav{box-shadow:0 -4px 20px ${c}1f}#fab{box-shadow:0 8px 22px ${c}66}
+#ins{background:linear-gradient(160deg,${L.pri2},${L.bg} 55%)}#ins .st .num{background:${c}}#ins .st{box-shadow:0 4px 18px ${c}26}`;
 }
-function setTheme(k){st.theme=k;saveLocal();applyTheme();render();settings()}
-function themeBlock(){return `<div class="lbl">🎨 Couleurs (sur ce téléphone)</div>
-  <div class="chips wrap">${Object.entries(THEMES).map(([k,t])=>`<button class="chip ${TH()===t?'on':''}" onclick="setTheme('${k}')">${t.e} ${t.n}</button>`).join('')}</div>
-  <p class="mut">Chacun choisit ses couleurs : ça ne change rien sur l'autre téléphone.</p>`}
+function setCol(c){st.col=c;saveLocal();applyTheme();render();colorSheet()}
+function setMotif(m){st.motif=m;saveLocal();applyTheme();render();colorSheet()}
+function colorSheet(){
+  const cur=colOf(),m=motOf(),custom=cur!=='rose'&&!PALETTE.some(x=>x[1]===cur);
+  sheet(`<h3>🎨 Mes couleurs</h3><p class="mut">Seulement sur ce téléphone : l'autre garde ses couleurs à lui (ou à elle).</p>
+  <div class="pal">${PALETTE.map(([n,c])=>`<button class="sw ${cur===c?'on':''}" onclick="setCol('${c}')"><i style="background:${c==='rose'?'linear-gradient(135deg,#f7a9c4,#e8779c)':c}"></i>${n}</button>`).join('')}</div>
+  <label class="sw-free ${custom?'on':''}"><input type="color" value="${custom?cur:'#3a86c8'}" onchange="setCol(this.value)"><span>🖌️ Autre couleur, au choix</span></label>
+  <div class="lbl">Motif du fond</div>
+  <div class="chips wrap">${[['fleurs','🌸 Fleurs'],['formes','◆ Formes'],['uni','▫️ Uni']].map(([k,n])=>`<button class="chip ${m===k?'on':''}" onclick="setMotif('${k}')">${n}</button>`).join('')}</div>
+  <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSheet()">C'est parfait ✓</button></div>`)}
+function themeBlock(){return `<div class="lbl">🎨 Couleurs (sur ce téléphone)</div><div class="row"><button class="btn soft" onclick="colorSheet()">🎨 Choisir mes couleurs</button></div>`}
 
 // ---------- Vues ----------
 const V={
@@ -504,7 +536,7 @@ home(){
   const m=st.meals[ti]||{};
   const ev=upcoming().filter(x=>x.n>=1&&x.n<=14).slice(0,4);
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
-  return `<div class="hero"><div class="hi">${hi} ${who()} ${TH().hi}</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${(TH().pri?QUOTES2:QUOTES)[doy%(TH().pri?QUOTES2:QUOTES).length]}</div></div>
+  return `<div class="hero"><div class="hi">${hi} ${who()} ${TH().hi}</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${(TH().neutral?QUOTES2:QUOTES)[doy%(TH().neutral?QUOTES2:QUOTES).length]}</div></div>
   ${installBanner()}
   ${alertCard()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
@@ -674,7 +706,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.5';
+const APPV='2026-11-01.6';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
