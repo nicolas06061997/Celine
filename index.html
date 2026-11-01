@@ -710,7 +710,7 @@ agenda(){
 function settings(){
   sheet(`<h3>⚙️ Réglages</h3>
   <div class="lbl">Ton prénom (sur ce téléphone)</div>
-  <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="profSave();render()">
+  <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="st.name=this.value.trim()||'Céline';profSave();render()">
   <p class="mut">Ce téléphone : <b>${esc((myProf()||{}).name||'pas encore choisi')}</b> · <span class="link" onclick="whoSheet()">changer</span></p>
   ${themeBlock()}
   ${notifBlock()}
@@ -787,7 +787,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.11';
+const APPV='2026-11-01.12';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».

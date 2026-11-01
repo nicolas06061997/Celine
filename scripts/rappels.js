@@ -1,6 +1,7 @@
 // Rappels envoyés sur les téléphones (Web Push), lancé tous les quarts d'heure par .github/workflows/rappels.yml.
 //  - Anniversaires : la veille (dès 7h) et le jour même (dès 7h).
-//  - Rendez-vous et autres événements : la veille dès 19h, et environ 1 heure avant s'il y a une heure.
+//  - Rendez-vous et autres événements : la veille dès 19h, et entre 1 h 30 et quelques minutes avant s'il y a une heure
+//    (GitHub lance la tâche toutes les 30 à 45 min en pratique, d'où cette fenêtre large).
 // Chaque rappel n'est envoyé qu'une fois : les rappels déjà envoyés sont notés dans FB/familles/FAM-sent.
 // La clé d'envoi est dans FB/familles/FAM-pushkey (créée par l'appli).
 const FB = 'https://celine-fcdb2-default-rtdb.europe-west1.firebasedatabase.app';
@@ -39,7 +40,7 @@ function reminders(events, now) {
     if (n.h >= 19 && isTomorrow) out.push({ key: 'rv-' + e.id + '-' + tomorrow, title: '🔔 Demain, ne pas oublier', body: ic + ' ' + e.t + at, tag: 'veille-' + e.id });
     if (e.time && isToday) {
       const [hh, mm] = e.time.split(':').map(Number), left = Date.UTC(n.y, n.m - 1, n.d, hh, mm) / 6e4 - n.t;
-      if (left > 0 && left <= 75) out.push({ key: 'rh-' + e.id + '-' + today + '-' + e.time, title: '⏰ ' + (left > 50 ? 'Dans 1 heure' : 'Dans ' + Math.max(5, Math.round(left / 5) * 5) + ' minutes'), body: ic + ' ' + e.t + at, tag: 'heure-' + e.id });
+      if (left > 0 && left <= 95) out.push({ key: 'rh-' + e.id + '-' + today + '-' + e.time, title: '⏰ ' + (left > 75 ? 'Dans 1 h 30' : left > 50 ? 'Dans 1 heure' : 'Dans ' + Math.max(5, Math.round(left / 5) * 5) + ' minutes'), body: ic + ' ' + e.t + at, tag: 'heure-' + e.id });
     }
   }
   return out;

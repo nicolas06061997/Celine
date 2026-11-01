@@ -39,7 +39,7 @@ Manifeste en plein écran (`display: fullscreen`, sans barres du téléphone sur
 ## Rappels (notifications)
 Web Push : le premier téléphone qui active crée la paire de clés (`pushKey()`, WebCrypto) dans `FB/familles/FAM-pushkey` ; chacun s'abonne (`notifOn()`) et range l'abonnement dans `FB/familles/FAM-push/<id>.json`.
 `.github/workflows/rappels.yml` lance `scripts/rappels.js` tous les quarts d'heure :
-anniversaires la veille et le jour J (dès 7h) ; autres événements la veille dès 19h et ~1 h avant (si heure). `rem:false` sur un événement = pas de rappel.
+anniversaires la veille et le jour J (dès 7h) ; autres événements la veille dès 19h et dans les 95 min avant (si heure ; GitHub lance en pratique toutes les 30-45 min). `rem:false` sur un événement = pas de rappel.
 Chaque rappel n'est envoyé qu'une fois (clés notées 3 jours dans `FB/familles/FAM-sent`). Abonnements morts (404/410) supprimés.
 Accueil : `alertCard()` met en haut les événements du jour (et ceux de demain) ; « À venir » commence à demain.
 `sw.js` affiche la notification (`push`) et ouvre l'agenda au clic. Sur iPhone : seulement si l'appli est installée (iOS 16.4+).
@@ -61,3 +61,6 @@ Photo de fond : `localStorage` clé `celine-bg` (réduite à 1400 px, JPEG compr
 `st.profiles` (partagé) = `{id,name,col,motif,veil,blur,ph,u}` ; `st.me` (local) = profil de ce téléphone. Photo du profil : `FB/familles/FAM-photo/<id>.json`.
 Question « Qui utilise ce téléphone ? » (`whoSheet()`) après la première synchro si `st.me` est vide ; `applyMine()` (appelé dans `unpack()`) remet prénom, couleurs et photo du profil.
 Tout réglage perso passe par `profSave()` / `photoUp()`. `navigator.storage.persist()` demandé au démarrage.
+
+## Si la publication GitHub Pages reste bloquée
+Erreur « in progress deployment » : relancer les jobs échoués du dernier « pages build and deployment » ; outil `.github/workflows/debloquer-pages.yml` (workflow_dispatch, entrée `sha`) pour clôturer un déploiement coincé ; sinon Settings → Pages : Branch None puis main.
