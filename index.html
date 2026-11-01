@@ -23,7 +23,8 @@ body{background:var(--bg) var(--pat) repeat;background-size:240px 240px;min-heig
 #bgph i{position:absolute;inset:-20px;background:center/cover no-repeat;transform:translateZ(0)}
 #bgph b{position:absolute;inset:0;background:var(--bg)}
 html.has-ph body{background:transparent}html.has-ph #bgph{display:block}
-html.has-ph header h1,html.has-ph main>p.mut,html.has-ph #sy{text-shadow:0 0 6px var(--bg),0 0 12px var(--bg)}
+html.has-ph header h1{background:color-mix(in srgb,var(--card) 82%,transparent);border-radius:16px;padding:2px 12px 4px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+html.has-ph main>p.mut,html.has-ph main>.tog{background:color-mix(in srgb,var(--card) 85%,transparent);border-radius:14px;padding:8px 12px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .phrow{display:flex;gap:12px;align-items:center;background:var(--pri3);border-radius:14px;padding:10px 12px;margin-top:8px}
 .phrow .th{width:54px;height:54px;border-radius:12px;background:center/cover var(--pri2);flex:none}
 .phrow input[type=range]{width:100%;accent-color:var(--pri);padding:0;background:none}
@@ -541,7 +542,7 @@ function applyPhoto(){
   const el=$('#bgph');if(!el)return;
   if(!on){el.innerHTML='';return}
   if(!el.firstChild)el.innerHTML='<i></i><b></b>';
-  const veil=st.bgVeil??0.62,blur=st.bgBlur??1;
+  const veil=st.bgVeil??0.35,blur=st.bgBlur??0;
   el.firstChild.style.backgroundImage='url("'+bgPhoto+'")';el.firstChild.style.filter=blur?'blur('+(blur*3)+'px)':'none';
   el.lastChild.style.opacity=veil;
 }
@@ -561,12 +562,12 @@ function delPhoto(){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=n
 function setVeil(v){st.bgVeil=+v;saveLocal();applyPhoto()}
 function setBlur(on){st.bgBlur=on?1:0;saveLocal();applyPhoto()}
 function photoBlock(){
-  const veil=st.bgVeil??0.62;
+  const veil=st.bgVeil??0.35;
   return `<div class="lbl">📷 Photo de fond</div>
   ${bgPhoto?`<div class="phrow"><span class="th" style="background-image:url('${bgPhoto}')"></span><div style="flex:1">
       <div style="font-size:14px;font-weight:700">Photo plus ou moins visible</div>
-      <input type="range" min="0.25" max="0.85" step="0.05" value="${(1.1-veil).toFixed(2)}" oninput="setVeil((1.1-this.value).toFixed(2))" aria-label="Visibilité de la photo"></div></div>
-    <label class="tog" style="margin:10px 2px"><input type="checkbox" ${(st.bgBlur??1)?'checked':''} onchange="setBlur(this.checked)"> Légèrement flou (plus facile à lire)</label>
+      <input type="range" min="0.25" max="1.05" step="0.05" value="${(1.1-veil).toFixed(2)}" oninput="setVeil((1.1-this.value).toFixed(2))" aria-label="Visibilité de la photo"></div></div>
+    <label class="tog" style="margin:10px 2px"><input type="checkbox" ${(st.bgBlur??0)?'checked':''} onchange="setBlur(this.checked)"> Légèrement flou (plus facile à lire)</label>
     <div class="row"><label class="btn soft" style="text-align:center">🔄 Changer<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label><button class="btn del" onclick="delPhoto()">Retirer</button></div>`
   :`<label class="btn soft" style="display:block;text-align:center;margin-top:4px">📷 Choisir une photo<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
     <p class="mut">Elle reste seulement sur ce téléphone.</p>`}`;
@@ -754,7 +755,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.7';
+const APPV='2026-11-01.8';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
