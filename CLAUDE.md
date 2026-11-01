@@ -31,6 +31,7 @@ Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",
 La session de développement ne peut pas joindre Firebase : tester avec un faux serveur (route Playwright).
 
 ## Installation
+Manifeste en plein écran (`display: fullscreen`, sans barres du téléphone sur Android ; `standalone()` le reconnaît).
 Écran plein `#ins` (`showIns()`, `insHTML()`) au démarrage si l'appli n'est pas installée : adapte les explications
 (WhatsApp/Messenger sur iPhone → bouton `x-safari-https://…` + étapes ; Android → `intent://` vers Chrome ; Safari → Partager ⬆️ → « Sur l'écran d'accueil »).
 « Plus tard » le cache 24 h (clé `celine-ins`). Un iPhone ne permet pas d'installer automatiquement : seulement guider.

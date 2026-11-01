@@ -740,7 +740,7 @@ function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effac
 // Le lien peut s'ouvrir n'importe où (WhatsApp, Messenger, Safari, Chrome…) : un grand écran guide pas à pas.
 let dp=null;
 const UA=navigator.userAgent;
-const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;
 const isIOS=/iphone|ipad|ipod/i.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const isAndroid=/Android/i.test(UA);
 const inApp=()=>/; wv\)|FBAN|FBAV|FB_IAB|Messenger|Instagram|WhatsApp|Snapchat|musical_ly|TikTok|Line\/|GSA\/|LinkedInApp|Twitter/.test(UA);
@@ -786,7 +786,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.9';
+const APPV='2026-11-01.10';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
