@@ -244,16 +244,17 @@ function toggleTask(id){
     if(list.every(isDone))toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo '+(st.name||'Céline')+', tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉');}
 }
 function taskSheet(id){
-  const t=id?st.tasks.find(x=>x.id===id):{e:'🧹',t:'',day:dayF,rep:true};
+  const t=id?st.tasks.find(x=>x.id===id):{e:'🧹',t:'',day:dayF<8?dayF:todayI(),rep:true};
   ed={id:id||'',e:t.e,day:t.day};
   sheet(`<h3>${id?'Modifier la tâche':'Nouvelle tâche'}</h3>
-  <div class="row"><button class="chip" style="font-size:22px;padding:8px 12px" id="fe">${esc(t.e)}</button><input id="ft" value="${esc(t.t)}" placeholder="Ex : Passer l'aspirateur" oninput="guessEmoji(this.value)"></div>
+  <div class="row"><button class="chip" style="font-size:22px;padding:8px 12px" id="fe" onclick="cycEmoji()" aria-label="Changer l'image">${esc(t.e)}</button><input id="ft" value="${esc(t.t)}" placeholder="Ex : Passer l'aspirateur" ${id?'':'oninput="guessEmoji(this.value)"'}></div>
   ${id?'':`<div class="lbl">Idées</div><div class="chips">${SUG.map((s,i)=>`<button class="chip" onclick="pickSug(${i})">${s[0]} ${esc(s[1])}</button>`).join('')}</div>`}
   <div class="lbl">Quel jour ?</div><div class="chips wrap">${[...DAYS,'N\'importe quand'].map((d,i)=>`<button class="chip dch ${i===t.day?'on':''}" onclick="setDay(${i},this)">${i<7?d.slice(0,3)+'.':'🗓️ '+d}</button>`).join('')}</div>
   <label class="tog"><input type="checkbox" id="fr" ${t.rep?'checked':''}> 🔁 Revient chaque semaine</label>
   <div class="row"><button class="btn" onclick="saveTask()">Enregistrer</button>${id?`<button class="btn del" onclick="delTask()">Supprimer</button>`:''}</div>`);
   if(!id)setTimeout(()=>$('#ft').focus(),250);
 }
+function cycEmoji(){const L=[...new Set(SUG.map(s=>s[0]))];ed.e=L[(L.indexOf(ed.e)+1)%L.length];$('#fe').textContent=ed.e}
 function pickSug(i){ed.e=SUG[i][0];$('#fe').textContent=ed.e;$('#ft').value=SUG[i][1]}
 function guessEmoji(v){v=v.toLowerCase();const s=SUG.find(s=>s[1].toLowerCase().split(' ').some(w=>w.length>4&&v.includes(w)));if(s){ed.e=s[0];$('#fe').textContent=s[0]}}
 function setDay(i,b){ed.day=i;document.querySelectorAll('.dch').forEach(x=>x.classList.remove('on'));b.classList.add('on')}
@@ -582,7 +583,7 @@ function restore(inp){
   r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const nm=st.name;st=def();st.name=nm;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const nm=st.name,sc={};for(const k in st.sched)sc[k]={v:'',u:n};st=def();st.name=nm;st.sched=sc;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 // Le lien peut s'ouvrir n'importe où (WhatsApp, Messenger, Safari, Chrome…) : un grand écran guide pas à pas.
@@ -634,7 +635,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.2';
+const APPV='2026-11-01.3';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
