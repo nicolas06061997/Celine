@@ -106,7 +106,8 @@ nav button.on b{filter:none;opacity:1;transform:translateY(-2px) scale(1.12)}
 .tog{display:flex;align-items:center;gap:10px;margin:16px 2px;font-weight:600}
 .tog input{width:22px;height:22px;accent-color:var(--pri)}
 #toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top));transform:translate(-50%,-150%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:16px;font-weight:700;transition:.3s;z-index:20;max-width:90vw;text-align:center}
-#toast.on{transform:translate(-50%,0)}
+#toast.on{transform:translate(-50%,0);opacity:1;visibility:visible}
+#toast{opacity:0;visibility:hidden;pointer-events:none;transition:transform .3s,opacity .3s,visibility .3s}
 #upd{position:fixed;left:12px;right:12px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:9;display:none;gap:10px;align-items:center;background:var(--pri);color:#fff;padding:14px 14px 14px 16px;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}#upd.on{display:flex}#upd>div{flex:1;line-height:1.3}#upd small{display:block;opacity:.9;font-size:13px}#upd button{background:#fff;color:var(--pri);font-weight:800;border-radius:12px;padding:10px 14px;white-space:nowrap}
 #ins{position:fixed;inset:0;z-index:30;background:linear-gradient(160deg,#fde3ec,#fff5f8 55%);color:#4a3940;display:none;flex-direction:column;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));overflow:auto}
 #ins.on{display:flex}#insc{max-width:460px;margin:0 auto;width:100%}
@@ -786,7 +787,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.10';
+const APPV='2026-11-01.11';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
