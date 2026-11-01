@@ -50,6 +50,7 @@ Heures d'un jour précis : `daySheet(k)` → `st.sched[k].h` (remplace les heure
 Les heures ne sont stockées dans `sched[k].h` que si elles diffèrent de celles du type (`schedVal()`) ; les fenêtres préremplissent les heures du type (`typeHM()`).
 Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Horaire du jour et de demain sur l'accueil.
 
-## Couleurs (thème)
-`st.theme` (propre à chaque téléphone, pas partagé) : `rose` (d'origine, fleurs) ou `bleu`/`vert`/`ardoise` (motifs géométriques `geoTile()`, phrases neutres `QUOTES2`).
-`applyTheme()` injecte un `<style id="thm">` qui remplace les variables de couleur ; choix dans Réglages (`themeBlock()`).
+## Couleurs (propres à chaque téléphone)
+`st.col` (couleur hex de `PALETTE`, couleur libre, ou `'rose'` = style d'origine) et `st.motif` (`fleurs`/`formes`/`uni`), jamais partagés.
+`applyTheme()` calcule toutes les teintes depuis la couleur (`mix()`, assombrie si trop claire) et injecte `<style id="thm">` ; rose + fleurs = aucun style ajouté.
+Choix par le bouton 🎨 en haut (`colorSheet()`) ou dans Réglages. Phrases neutres (`QUOTES2`) si le motif n'est pas « fleurs ».
