@@ -123,6 +123,12 @@ textarea{min-height:90px;resize:vertical}
 .cal .c[style*="--shc"].sel{background:var(--pri);color:#fff}
 .cal .sh{font-size:12px;line-height:1}
 .pday{background:var(--pri3);border-radius:16px;padding:10px 12px;margin:8px 0}.pday>b{display:block;margin-bottom:4px}.pday .row{margin-top:6px}.pday input{padding:8px 10px}
+.alert{background:linear-gradient(135deg,#ffb3a7,#ff8fb1);color:#fff;box-shadow:0 8px 24px rgba(255,120,150,.35);animation:pop .5s ease}
+.alert h2{color:#fff;font-size:19px;margin-bottom:6px}
+.al-i{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.25);border-radius:14px;padding:10px 12px;margin-top:8px;font-size:17px}
+.al-i b{overflow-wrap:anywhere}.al-e{font-size:24px}.al-t{font-size:14px;opacity:.95;margin-top:2px}
+.al-tm{margin-top:10px}.al-tm .al-i{background:rgba(255,255,255,.15);font-size:15px}.al-l{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.9}
+@keyframes pop{from{transform:scale(.96);opacity:.4}}
 .shrow{border-radius:12px;padding:9px 12px;margin:0 0 6px;color:#4a3940;font-size:15px}
 .paint{position:sticky;top:6px;z-index:4;outline:2.5px solid var(--pri)}
 .ring text{font-weight:800;fill:var(--ink)}
@@ -435,6 +441,19 @@ function delShift(id){gone(id);st.shifts=st.shifts.filter(s=>s.id!==id);if(paint
 function calToday(){const t=new Date();calM=new Date(t.getFullYear(),t.getMonth(),1);calSel=ymd(t);render()}
 function calSwipe(ev){if(calX===null)return;const dx=ev.changedTouches[0].clientX-calX;calX=null;if(Math.abs(dx)>60)calMove(dx<0?1:-1)}
 
+// ---------- Alerte du jour (accueil) ----------
+// Tout ce qui arrive aujourd'hui (rendez-vous, anniversaires…) en haut de l'accueil, et un rappel de demain.
+function alertCard(){
+  const up=upcoming(),td=up.filter(x=>x.n===0),tm=up.filter(x=>x.n===1);
+  if(!td.length&&!tm.length)return '';
+  const line=x=>{const ty=TYPES.find(t=>t[0]===x.e.type)||TYPES[4];
+    return `<div class="al-i"><span class="al-e">${ty[1]}</span><div style="flex:1;min-width:0"><b>${esc(x.e.t)}</b>${x.age?' ('+x.age+(x.age>1?' ans':' an')+')':''}${x.e.time?`<div class="al-t">🕐 ${esc(x.e.time)}</div>`:''}</div></div>`};
+  return `<div class="card alert" onclick="calSel=null;go('agenda')">
+    ${td.length?`<h2>🔔 Aujourd'hui, ne pas oublier !</h2>${td.map(line).join('')}`:''}
+    ${tm.length?`<div class="al-tm">${td.length?'':'<h2>🔔 Demain, ne pas oublier</h2>'}${td.length?'<div class="al-l">Demain</div>':''}${tm.map(line).join('')}</div>`:''}
+  </div>`;
+}
+
 // ---------- Vues ----------
 const V={
 home(){
@@ -444,11 +463,11 @@ home(){
   const tdy=st.tasks.filter(t=>t.day===ti),dn=tdy.filter(isDone).length,anyw=st.tasks.filter(t=>t.day===7&&!isDone(t));
   const left=st.shop.filter(i=>!i.done).length;
   const m=st.meals[ti]||{};
-  const ev=upcoming().filter(x=>x.n>=0&&x.n<=14).slice(0,4);
+  const ev=upcoming().filter(x=>x.n>=1&&x.n<=14).slice(0,4);
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
   return `<div class="hero"><div class="hi">${hi} ${who()} 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
   ${installBanner()}
-  ${upcoming().filter(x=>x.n===0&&x.e.type==='anniv').map(x=>`<div class="card" style="background:linear-gradient(135deg,#fff3c4,#ffe0ec);color:#4a3940" onclick="go('agenda')"><h2 style="margin:0">🎂 Aujourd'hui : ${esc(x.e.t)}${x.age?' ('+x.age+(x.age>1?' ans':' an')+')':''}</h2><div class="mut" style="color:#7a6670">Pense à lui souhaiter 💗</div></div>`).join('')}
+  ${alertCard()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
     ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(t=>taskRow(t)).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
     ${anyw.length?`<div class="cat">🗓️ Cette semaine, quand tu veux</div>${anyw.map(t=>taskRow(t)).join('')}`:''}
@@ -615,7 +634,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-10-31.15';
+const APPV='2026-11-01.1';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».

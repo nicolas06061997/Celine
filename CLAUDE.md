@@ -38,6 +38,7 @@ La session de développement ne peut pas joindre Firebase : tester avec un faux 
 Web Push : le premier téléphone qui active crée la paire de clés (`pushKey()`, WebCrypto) dans `FB/familles/FAM-pushkey` ; chacun s'abonne (`notifOn()`) et range l'abonnement dans `FB/familles/FAM-push/<id>.json`.
 `.github/workflows/anniversaires.yml` lance chaque matin `scripts/anniversaires.js` : jour J et veille des événements `type:'anniv'`. Rappel aussi sur l'accueil le jour J.
 Rien à configurer côté GitHub. Abonnements morts (404/410) supprimés.
+Accueil : `alertCard()` met en haut les événements du jour (et ceux de demain) ; « À venir » commence à demain.
 `sw.js` affiche la notification (`push`) et ouvre l'agenda au clic. Sur iPhone : seulement si l'appli est installée (iOS 16.4+).
 
 ## Horaire de travail (agenda)
