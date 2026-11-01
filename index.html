@@ -333,12 +333,13 @@ function evSheet(id){
   <div class="lbl">Quoi ?</div><input id="et" value="${esc(e.t)}" placeholder="Ex : Dentiste, Anniversaire de maman…">
   <div class="lbl">Quand ?</div><div class="row"><input type="date" id="ed" value="${e.date}"><input type="time" id="eh" value="${esc(e.time)}" style="max-width:130px"></div>
   <label class="tog"><input type="checkbox" id="ey" ${e.yearly?'checked':''}> 🔁 Revient chaque année</label>
+  <label class="tog"><input type="checkbox" id="er" ${e.rem===false?'':'checked'}> 🔔 Me le rappeler <span class="mut">(la veille à 19h et 1 h avant)</span></label>
   <div class="row"><button class="btn" onclick="saveEv()">Enregistrer</button>${id?`<button class="btn del" onclick="delEv()">Supprimer</button>`:''}</div>`);
 }
 function setType(t,b){ed.type=t;document.querySelectorAll('.tch').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(t==='anniv')$('#ey').checked=true}
 function saveEv(){
   const t=$('#et').value.trim(),d=$('#ed').value;if(!t){$('#et').focus();return}if(!d){$('#ed').focus();return}
-  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,u:Date.now()};
+  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,rem:$('#er').checked,u:Date.now()};
   if(ed.id)Object.assign(st.events.find(x=>x.id===ed.id),o);else st.events.push({id:uid(),...o});
   save();closeSheet();render();
 }
@@ -552,7 +553,7 @@ agenda(){
     <div class="row" style="margin-top:8px"><button class="btn soft" onclick="repeatSheet()">📋 Recopier une semaine</button><button class="btn soft" onclick="paintMode(1)">🖌️ Plusieurs jours</button></div>
     <div class="row" style="margin-top:8px;justify-content:space-between"><span class="link" onclick="typesSheet()">✏️ Changer les types</span><span class="link" style="color:var(--mut)" onclick="clearSchedSheet()">🧽 Effacer</span></div></div>`}
   <div class="card"><h2>⏭️ Prochainement</h2>${up.length?up.map(evRow).join(''):'<div class="mut">Rien de prévu. Ajoute tes rendez-vous et les anniversaires avec <b style="color:var(--pri)">+</b></div>'}</div>
-  ${!st.notif&&notifOK()?'<div class="row" style="margin-bottom:12px"><button class="btn soft" onclick="notifOn()">🔔 Me prévenir des anniversaires</button></div>':''}
+  ${!st.notif&&notifOK()?'<div class="row" style="margin-bottom:12px"><button class="btn soft" onclick="notifOn()">🔔 Activer les rappels sur ce téléphone</button></div>':''}
   <p class="mut" style="text-align:center">Touche un jour pour voir ou ajouter. Glisse pour changer de mois.<br>Les couleurs du calendrier montrent l'horaire de travail.<br>Les anniversaires 🎂 reviennent chaque année tout seuls.</p>`;
 }};
 
@@ -635,7 +636,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.3';
+const APPV='2026-11-01.4';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -763,9 +764,9 @@ async function notifOff(){
 }
 function notifBlock(){
   const on=st.notif&&notifOK()&&Notification.permission==='granted';
-  return `<div class="lbl">🔔 Notifications</div>
-    <p class="mut">Un message le matin quand c'est un anniversaire 🎂, et la veille pour penser au cadeau 🎁.</p>
-    <div class="row">${on?'<button class="btn soft" onclick="notifOff()">🔕 Couper les notifications</button>':'<button class="btn" onclick="notifOn()">🔔 Activer les notifications</button>'}</div>`;
+  return `<div class="lbl">🔔 Rappels (notifications)</div>
+    <p class="mut">Un message la veille au soir (19h) et 1 heure avant chaque rendez-vous 📅, et pour les anniversaires 🎂 la veille et le jour même.</p>
+    <div class="row">${on?'<button class="btn soft" onclick="notifOff()">🔕 Couper les rappels</button>':'<button class="btn" onclick="notifOn()">🔔 Activer les rappels</button>'}</div>`;
 }
 // Clic sur une notification : ouvrir l'agenda.
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='agenda')go('agenda')});

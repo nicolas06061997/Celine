@@ -1,27 +1,32 @@
-name: Notifications anniversaires
+name: Rappels (rendez-vous et anniversaires)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "41 6 * * *"   # vers 7h40 l'hiver, 8h40 l'été (heure belge)
+    - cron: "*/15 * * * *"   # tous les quarts d'heure ; chaque rappel n'est envoyé qu'une fois
 
 permissions:
   contents: read
   actions: write
 
+concurrency:
+  group: rappels
+  cancel-in-progress: false
+
 jobs:
   envoyer:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm install --no-save web-push@3.6.7
-      - run: node scripts/anniversaires.js
+      - run: node scripts/rappels.js
       # GitHub arrête les tâches planifiées après 60 jours sans changement : on la réactive à chaque passage.
       - name: Rester active
         if: always()
-        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/anniversaires.yml/enable" || true
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/rappels.yml/enable" || true
         env:
           GH_TOKEN: ${{ github.token }}
