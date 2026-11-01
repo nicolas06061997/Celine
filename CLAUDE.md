@@ -54,3 +54,4 @@ Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Hora
 `st.col` (couleur hex de `PALETTE`, couleur libre, ou `'rose'` = style d'origine) et `st.motif` (`fleurs`/`formes`/`uni`), jamais partagés.
 `applyTheme()` calcule toutes les teintes depuis la couleur (`mix()`, assombrie si trop claire) et injecte `<style id="thm">` ; rose + fleurs = aucun style ajouté.
 Choix par le bouton 🎨 en haut (`colorSheet()`) ou dans Réglages. Phrases neutres (`QUOTES2`) si le motif n'est pas « fleurs ».
+Photo de fond : `localStorage` clé `celine-bg` (réduite à 1400 px, JPEG compressé, jamais partagée) ; `#bgph` fixe derrière tout, voile `st.bgVeil` + flou `st.bgBlur` (`applyPhoto()`, `photoBlock()`).

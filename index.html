@@ -18,6 +18,15 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{background:var(--bg) var(--pat) repeat;background-size:240px 240px;min-height:100vh;box-sizing:border-box}
+/* Photo de fond (propre à chaque téléphone) : fixe derrière tout, avec un voile pour garder la lecture facile */
+#bgph{display:none;position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+#bgph i{position:absolute;inset:-20px;background:center/cover no-repeat;transform:translateZ(0)}
+#bgph b{position:absolute;inset:0;background:var(--bg)}
+html.has-ph body{background:transparent}html.has-ph #bgph{display:block}
+html.has-ph header h1,html.has-ph main>p.mut,html.has-ph #sy{text-shadow:0 0 6px var(--bg),0 0 12px var(--bg)}
+.phrow{display:flex;gap:12px;align-items:center;background:var(--pri3);border-radius:14px;padding:10px 12px;margin-top:8px}
+.phrow .th{width:54px;height:54px;border-radius:12px;background:center/cover var(--pri2);flex:none}
+.phrow input[type=range]{width:100%;accent-color:var(--pri);padding:0;background:none}
 html,body{margin:0;color:var(--ink);font:16px/1.4 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 body{padding:env(safe-area-inset-top) 0 calc(78px + env(safe-area-inset-bottom))}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
@@ -142,6 +151,7 @@ textarea{min-height:90px;resize:vertical}
 </style>
 </head>
 <body>
+<div id="bgph"></div>
 <header><h1>Céline <span id="hsym">✿</span> <small id="sy" onclick="settings()"></small></h1><div class="hbtn"><button class="gear" onclick="colorSheet()" aria-label="Couleurs">🎨</button><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></div></header>
 <main id="main"></main>
 <button id="fab" onclick="fab()" aria-label="Ajouter">+</button>
@@ -520,9 +530,47 @@ function colorSheet(){
   sheet(`<h3>🎨 Mes couleurs</h3><p class="mut">Seulement sur ce téléphone : l'autre garde ses couleurs à lui (ou à elle).</p>
   <div class="pal">${PALETTE.map(([n,c])=>`<button class="sw ${cur===c?'on':''}" onclick="setCol('${c}')"><i style="background:${c==='rose'?'linear-gradient(135deg,#f7a9c4,#e8779c)':c}"></i>${n}</button>`).join('')}</div>
   <label class="sw-free ${custom?'on':''}"><input type="color" value="${custom?cur:'#3a86c8'}" onchange="setCol(this.value)"><span>🖌️ Autre couleur, au choix</span></label>
-  <div class="lbl">Motif du fond</div>
+  ${photoBlock()}
+  <div class="lbl">${bgPhoto?'Motif (caché par la photo)':'Motif du fond'}</div>
   <div class="chips wrap">${[['fleurs','🌸 Fleurs'],['formes','◆ Formes'],['uni','▫️ Uni']].map(([k,n])=>`<button class="chip ${m===k?'on':''}" onclick="setMotif('${k}')">${n}</button>`).join('')}</div>
   <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSheet()">C'est parfait ✓</button></div>`)}
+// ---------- Photo de fond (rangée seulement sur ce téléphone, clé celine-bg) ----------
+let bgPhoto=null;try{bgPhoto=localStorage.getItem('celine-bg')}catch(e){}
+function applyPhoto(){
+  const on=!!bgPhoto;document.documentElement.classList.toggle('has-ph',on);
+  const el=$('#bgph');if(!el)return;
+  if(!on){el.innerHTML='';return}
+  if(!el.firstChild)el.innerHTML='<i></i><b></b>';
+  const veil=st.bgVeil??0.62,blur=st.bgBlur??1;
+  el.firstChild.style.backgroundImage='url("'+bgPhoto+'")';el.firstChild.style.filter=blur?'blur('+(blur*3)+'px)':'none';
+  el.lastChild.style.opacity=veil;
+}
+// Réduit la photo (max 1400 px) et la compresse pour qu'elle reste légère.
+function pickPhoto(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;inp.value='';toast('Photo en préparation…');
+  const url=URL.createObjectURL(f),img=new Image();
+  img.onload=()=>{const k=Math.min(1,1400/Math.max(img.width,img.height)),c=document.createElement('canvas');
+    c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
+    let q=.82,d=c.toDataURL('image/jpeg',q);while(d.length>1.6e6&&q>.4){q-=.12;d=c.toDataURL('image/jpeg',q)}
+    try{localStorage.setItem('celine-bg',d);bgPhoto=d;applyPhoto();colorSheet();toast('Photo de fond mise 📷')}
+    catch(e){toast('Photo trop lourde pour ce téléphone, essaie une autre')}};
+  img.onerror=()=>{URL.revokeObjectURL(url);toast('Impossible de lire cette photo')};
+  img.src=url;
+}
+function delPhoto(){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto();colorSheet()}
+function setVeil(v){st.bgVeil=+v;saveLocal();applyPhoto()}
+function setBlur(on){st.bgBlur=on?1:0;saveLocal();applyPhoto()}
+function photoBlock(){
+  const veil=st.bgVeil??0.62;
+  return `<div class="lbl">📷 Photo de fond</div>
+  ${bgPhoto?`<div class="phrow"><span class="th" style="background-image:url('${bgPhoto}')"></span><div style="flex:1">
+      <div style="font-size:14px;font-weight:700">Photo plus ou moins visible</div>
+      <input type="range" min="0.25" max="0.85" step="0.05" value="${(1.1-veil).toFixed(2)}" oninput="setVeil((1.1-this.value).toFixed(2))" aria-label="Visibilité de la photo"></div></div>
+    <label class="tog" style="margin:10px 2px"><input type="checkbox" ${(st.bgBlur??1)?'checked':''} onchange="setBlur(this.checked)"> Légèrement flou (plus facile à lire)</label>
+    <div class="row"><label class="btn soft" style="text-align:center">🔄 Changer<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label><button class="btn del" onclick="delPhoto()">Retirer</button></div>`
+  :`<label class="btn soft" style="display:block;text-align:center;margin-top:4px">📷 Choisir une photo<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>
+    <p class="mut">Elle reste seulement sur ce téléphone.</p>`}`;
+}
 function themeBlock(){return `<div class="lbl">🎨 Couleurs (sur ce téléphone)</div><div class="row"><button class="btn soft" onclick="colorSheet()">🎨 Choisir mes couleurs</button></div>`}
 
 // ---------- Vues ----------
@@ -706,7 +754,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.6';
+const APPV='2026-11-01.7';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -844,7 +892,7 @@ if(location.hash==='#agenda'){tab='agenda';history.replaceState(null,'',location
 setInterval(()=>{if(!document.hidden)sync()},30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else{startStream();sync()}});
 addEventListener('online',()=>sync());
-applyTheme();render();setSy(syncOK);setTimeout(()=>showIns(),700);
+applyTheme();applyPhoto();render();setSy(syncOK);setTimeout(()=>showIns(),700);
 </script>
 </body>
 </html>
