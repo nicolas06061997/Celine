@@ -135,7 +135,7 @@ textarea{min-height:90px;resize:vertical}
 </style>
 </head>
 <body>
-<header><h1>Céline <span>✿</span> <small id="sy" onclick="settings()"></small></h1><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></header>
+<header><h1>Céline <span id="hsym">✿</span> <small id="sy" onclick="settings()"></small></h1><button class="gear" onclick="settings()" aria-label="Réglages">⚙️</button></header>
 <main id="main"></main>
 <button id="fab" onclick="fab()" aria-label="Ajouter">+</button>
 <nav>
@@ -179,6 +179,7 @@ const CATS=[
  ['Bébé & animaux','🍼','couche lingette lait bébé croquette pâtée litière'],
  ['Autre','🛍️','']];
 const MEALS=['Pâtes bolognaise','Poulet rôti & pommes de terre','Croque-monsieur & salade','Quiche lorraine','Gratin dauphinois','Saumon & riz','Soupe de légumes','Lasagnes','Chili con carne','Omelette & salade','Boulettes sauce tomate','Raclette','Pizza maison','Stoemp & saucisse','Hachis parmentier','Curry de poulet','Wraps poulet crudités','Carbonnade & frites','Salade composée','Risotto aux champignons','Poisson pané & purée','Tacos maison','Crêpes salées','Vol-au-vent'];
+const QUOTES2=['Un petit pas chaque jour, et tout avance 💪','Une tâche à la fois, tranquillement ☕','Ce qui est fait n\'est plus à faire ✅','Bonne journée, champion 👍','Prends 5 minutes pour souffler aujourd\'hui 😌','En équipe, tout va plus vite 🤝','La maison n\'a pas besoin d\'être parfaite 🏡','Allez, on gère ! 🚀'];
 const QUOTES=['Un petit pas chaque jour, et tout avance 🌷','Pense aussi à toi aujourd\'hui 💗','Tu fais déjà beaucoup, sois fière de toi ✨','Une tâche à la fois, tranquillement ☕','La maison n\'a pas besoin d\'être parfaite, elle doit être heureuse 🏡','Prends 5 minutes rien que pour toi aujourd\'hui 🌸','Ce qui est fait n\'est plus à faire 💪','Souris, tu gères ! 😊'];
 
 // ---------- Horaire (types de journée de travail) ----------
@@ -456,6 +457,42 @@ function alertCard(){
   </div>`;
 }
 
+// ---------- Couleurs (propres à chaque téléphone) ----------
+// « rose » = le style d'origine (fleurs). Les autres remplacent couleurs et fleurs par des motifs géométriques.
+const THEMES={
+  rose:{n:'Rose',e:'🌸',hi:'🌸',sym:'✿',meta:'#e8779c'},
+  bleu:{n:'Bleu',e:'🌊',hi:'👋',sym:'✦',meta:'#3b6fb6',pri:'#3b6fb6',pri2:'#d3e3f6',pri3:'#eef4fb',bg:'#f3f7fc',hA:'#76a5dc',hB:'#335f9e',aA:'#ffa26b',aB:'#ef6f3c',p:['#d3e2f4','#c2d6ee','#e2ebf7'],
+        dk:{pri:'#82aeea',pri2:'#2c3a4d',pri3:'#222b37',bg:'#151a21',card:'#1f2630',p:['#26323f','#2d3b4b','#202a35']}},
+  vert:{n:'Vert',e:'🌿',hi:'🌿',sym:'✦',meta:'#4f8a6b',pri:'#4f8a6b',pri2:'#d4e8dc',pri3:'#eef6f1',bg:'#f3f8f4',hA:'#86b99c',hB:'#3f7559',aA:'#f5b062',aB:'#e07b39',p:['#d4e7da','#c5ddcd','#e3efe7'],
+        dk:{pri:'#7fc29d',pri2:'#2b3d33',pri3:'#212c26',bg:'#141a17',card:'#1e2621',p:['#24322a','#2b3b31','#1f2a24']}},
+  ardoise:{n:'Ardoise',e:'🌑',hi:'☕',sym:'✦',meta:'#4a5568',pri:'#4a5568',pri2:'#dde1e7',pri3:'#f0f2f5',bg:'#f4f5f7',hA:'#7a8699',hB:'#2d3748',aA:'#f6ad55',aB:'#e2803a',p:['#dfe3e9','#d3d8e0','#e8ebef'],
+        dk:{pri:'#a3b1c6',pri2:'#323844',pri3:'#262b33',bg:'#15171b',card:'#20242a',p:['#2a2f37','#323844','#24282f']}}};
+const TH=()=>THEMES[st.theme]||THEMES.rose;
+// Motif géométrique (cercles, carrés arrondis, croix, points) en SVG.
+function geoTile(c){const [a,b,d]=c;let g='<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><g fill="none" stroke-width="3" stroke-linecap="round">';
+  g+=`<circle cx="48" cy="52" r="16" stroke="${a}"/><rect x="160" y="132" width="26" height="26" rx="7" stroke="${b}" transform="rotate(18 173 145)"/><circle cx="196" cy="34" r="8" stroke="${b}"/>`;
+  g+=`<path d="M112 196l10 -16l10 16z" stroke="${a}" stroke-linejoin="round"/><path d="M128 64h14M135 57v14" stroke="${b}"/><path d="M28 168h12M34 162v12" stroke="${a}"/><path d="M208 210l14 -14" stroke="${d}"/><path d="M80 120l14 -14" stroke="${d}"/></g>`;
+  for(const [x,y,r] of [[100,30,3],[200,92,2.5],[30,118,2.6],[150,104,2.2],[64,220,2.6],[226,170,3]])g+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${a}"/>`;
+  return 'url("data:image/svg+xml,'+encodeURIComponent(g+'</svg>')+'")'}
+const HERO_GEO='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><g fill="none" stroke="rgba(255,255,255,.28)" stroke-width="10"><circle cx="100" cy="50" r="38"/></g><g fill="none" stroke="rgba(255,255,255,.2)" stroke-width="6"><circle cx="40" cy="112" r="18"/><rect x="112" y="104" width="24" height="24" rx="6" transform="rotate(20 124 116)"/></g></svg>')+'")';
+function applyTheme(){
+  const t=TH(),el=$('#thm')||document.head.appendChild(Object.assign(document.createElement('style'),{id:'thm'}));
+  $('#hsym').textContent=t.sym;const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t.meta;
+  if(!t.pri){el.textContent='';return}
+  const v=(o,pat)=>`--pri:${o.pri};--pri2:${o.pri2};--pri3:${o.pri3};--bg:${o.bg};${o.card?'--card:'+o.card+';':''}--pat:${pat};--line:${o.pri2};--sh:0 4px 18px ${o.pri}22`;
+  el.textContent=`:root:root{${v(t,geoTile(t.p))}}
+@media (prefers-color-scheme:dark){:root:root{${v(t.dk,geoTile(t.dk.p))};--ink:#eef1f5;--mut:#9aa5b4}}
+.hero{background:${HERO_GEO} right -18px top -22px/150px no-repeat,linear-gradient(135deg,${t.hA},${t.hB})}
+.alert{background:linear-gradient(135deg,${t.aA},${t.aB});box-shadow:0 8px 24px ${t.aB}55}
+.bar i{background:linear-gradient(90deg,${t.hA},var(--pri))}
+nav{box-shadow:0 -4px 20px ${t.pri}1f}#fab{box-shadow:0 8px 22px ${t.pri}66}
+#ins{background:linear-gradient(160deg,${t.pri2},${t.bg} 55%)}#ins .st .num{background:${t.pri}}#ins .st{box-shadow:0 4px 18px ${t.pri}26}`;
+}
+function setTheme(k){st.theme=k;saveLocal();applyTheme();render();settings()}
+function themeBlock(){return `<div class="lbl">🎨 Couleurs (sur ce téléphone)</div>
+  <div class="chips wrap">${Object.entries(THEMES).map(([k,t])=>`<button class="chip ${TH()===t?'on':''}" onclick="setTheme('${k}')">${t.e} ${t.n}</button>`).join('')}</div>
+  <p class="mut">Chacun choisit ses couleurs : ça ne change rien sur l'autre téléphone.</p>`}
+
 // ---------- Vues ----------
 const V={
 home(){
@@ -467,7 +504,7 @@ home(){
   const m=st.meals[ti]||{};
   const ev=upcoming().filter(x=>x.n>=1&&x.n<=14).slice(0,4);
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
-  return `<div class="hero"><div class="hi">${hi} ${who()} 🌸</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${QUOTES[doy%QUOTES.length]}</div></div>
+  return `<div class="hero"><div class="hi">${hi} ${who()} ${TH().hi}</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${(TH().pri?QUOTES2:QUOTES)[doy%(TH().pri?QUOTES2:QUOTES).length]}</div></div>
   ${installBanner()}
   ${alertCard()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
@@ -562,6 +599,7 @@ function settings(){
   sheet(`<h3>⚙️ Réglages</h3>
   <div class="lbl">Ton prénom (sur ce téléphone)</div>
   <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="render()">
+  ${themeBlock()}
   ${notifBlock()}
   ${shareBlock()}
   <div class="lbl">Sauvegarde</div>
@@ -636,7 +674,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.4';
+const APPV='2026-11-01.5';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -774,7 +812,7 @@ if(location.hash==='#agenda'){tab='agenda';history.replaceState(null,'',location
 setInterval(()=>{if(!document.hidden)sync()},30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else{startStream();sync()}});
 addEventListener('online',()=>sync());
-render();setSy(syncOK);setTimeout(()=>showIns(),700);
+applyTheme();render();setSy(syncOK);setTimeout(()=>showIns(),700);
 </script>
 </body>
 </html>

@@ -49,3 +49,7 @@ Heures d'un jour précis : `daySheet(k)` → `st.sched[k].h` (remplace les heure
 « Ma semaine type » (`weekSheet()`/`applyPat()`, type + heures par jour, option 1 semaine sur 2) remplit une période ; « Recopier une semaine » (`repeatSheet()`) ; « Plusieurs jours » = mode pinceau (`paint`).
 Les heures ne sont stockées dans `sched[k].h` que si elles diffèrent de celles du type (`schedVal()`) ; les fenêtres préremplissent les heures du type (`typeHM()`).
 Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Horaire du jour et de demain sur l'accueil.
+
+## Couleurs (thème)
+`st.theme` (propre à chaque téléphone, pas partagé) : `rose` (d'origine, fleurs) ou `bleu`/`vert`/`ardoise` (motifs géométriques `geoTile()`, phrases neutres `QUOTES2`).
+`applyTheme()` injecte un `<style id="thm">` qui remplace les variables de couleur ; choix dans Réglages (`themeBlock()`).
