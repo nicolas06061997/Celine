@@ -211,7 +211,7 @@ function def(){
   let n0=0;const t=(e,n,d)=>({id:'d'+(++n0),e,t:n,day:d,rep:true,done:null,u:0});
   return {tasks:[t('🧺','Faire une lessive',0),t('🧹','Passer l\'aspirateur',2),t('🗑️','Sortir les poubelles',3),t('🛁','Nettoyer la salle de bain',4),t('🛏️','Changer les draps',5),t('🪴','Arroser les plantes',7)],
     shop:[],hist:{},meals:{},events:[],memo:'',memoU:0,mu:{},gone:{},name:'Céline',fam:'',
-    shifts:SHIFT0.map((x,i)=>({id:'s'+(i+1),e:x[0],n:x[1],h:x[2],c:x[3],u:0})),sched:{}};
+    shifts:SHIFT0.map((x,i)=>({id:'s'+(i+1),e:x[0],n:x[1],h:x[2],c:x[3],u:0})),sched:{},profiles:[]};
 }
 let st=(()=>{try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.tasks)return Object.assign(def(),s)}catch(e){}return def()})();
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
@@ -524,8 +524,8 @@ function applyTheme(){
 nav{box-shadow:0 -4px 20px ${c}1f}#fab{box-shadow:0 8px 22px ${c}66}
 #ins{background:linear-gradient(160deg,${L.pri2},${L.bg} 55%)}#ins .st .num{background:${c}}#ins .st{box-shadow:0 4px 18px ${c}26}`;
 }
-function setCol(c){st.col=c;saveLocal();applyTheme();render();colorSheet()}
-function setMotif(m){st.motif=m;saveLocal();applyTheme();render();colorSheet()}
+function setCol(c){st.col=c;profSave();applyTheme();render();colorSheet()}
+function setMotif(m){st.motif=m;profSave();applyTheme();render();colorSheet()}
 function colorSheet(){
   const cur=colOf(),m=motOf(),custom=cur!=='rose'&&!PALETTE.some(x=>x[1]===cur);
   sheet(`<h3>🎨 Mes couleurs</h3><p class="mut">Seulement sur ce téléphone : l'autre garde ses couleurs à lui (ou à elle).</p>
@@ -535,7 +535,36 @@ function colorSheet(){
   <div class="lbl">${bgPhoto?'Motif (caché par la photo)':'Motif du fond'}</div>
   <div class="chips wrap">${[['fleurs','🌸 Fleurs'],['formes','◆ Formes'],['uni','▫️ Uni']].map(([k,n])=>`<button class="chip ${m===k?'on':''}" onclick="setMotif('${k}')">${n}</button>`).join('')}</div>
   <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSheet()">C'est parfait ✓</button></div>`)}
-// ---------- Photo de fond (rangée seulement sur ce téléphone, clé celine-bg) ----------
+// ---------- Profils : retrouver ses réglages (prénom, couleurs, photo) si le téléphone les perd ----------
+// st.me = profil de ce téléphone (local). Les profils sont partagés (st.profiles) ; la photo est rangée à part : FB/familles/FAM-photo/<id>.
+let whoAsked=false;
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}   // demande au téléphone de ne pas effacer les données
+const myProf=()=>st.me&&(st.profiles||[]).find(p=>p.id===st.me);
+const photoURL=id=>FB+'/familles/'+FAM+'-photo/'+id+'.json';
+function profSave(){saveLocal();const p=myProf();if(!p)return;
+  Object.assign(p,{name:st.name||'Céline',col:colOf(),motif:motOf(),veil:st.bgVeil??0.35,blur:st.bgBlur??0,u:Date.now()});save()}
+function photoUp(){const p=myProf();if(!p)return;
+  fetch(photoURL(p.id),{method:bgPhoto?'PUT':'DELETE',body:bgPhoto?JSON.stringify(bgPhoto):undefined}).then(r=>{if(r.ok){p.ph=bgPhoto?Date.now():0;p.u=Date.now();st.phU=p.ph;save()}}).catch(()=>{})}
+// Applique sur ce téléphone les réglages de son profil (après une synchro ou un choix).
+function applyMine(){const p=myProf();if(!p)return;
+  const ch=st.name!==p.name||colOf()!==p.col||motOf()!==p.motif||st.bgVeil!==p.veil||st.bgBlur!==p.blur;
+  Object.assign(st,{name:p.name,col:p.col,motif:p.motif,bgVeil:p.veil,bgBlur:p.blur});
+  if(ch){saveLocal();applyTheme();applyPhoto()}
+  if((p.ph||0)!==(st.phU||0)){st.phU=p.ph||0;saveLocal();
+    if(!p.ph){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto()}
+    else fetch(photoURL(p.id),{cache:'no-store'}).then(r=>r.json()).then(d=>{if(d){try{localStorage.setItem('celine-bg',d)}catch(e){}bgPhoto=d;applyPhoto()}}).catch(()=>{})}
+}
+function useProf(id){st.me=id;st.phU=-1;saveLocal();applyMine();closeSheet();render();toast('Bonjour '+(st.name||'')+' 👋')}
+function newProf(){const n=($('#whon').value||'').trim();if(!n){$('#whon').focus();return}
+  const p={id:uid(),name:n,col:colOf(),motif:motOf(),veil:st.bgVeil??0.35,blur:st.bgBlur??0,ph:0,u:Date.now()};
+  st.profiles=[...(st.profiles||[]),p];st.me=p.id;st.name=n;st.phU=0;save();if(bgPhoto)photoUp();closeSheet();render();toast('Bonjour '+n+' 👋')}
+function whoSheet(){
+  const ps=st.profiles||[];
+  sheet(`<h3>👋 Qui utilise ce téléphone ?</h3><p class="mut">Pour garder ton prénom, tes couleurs et ta photo, même si le téléphone les efface un jour.</p>
+  ${ps.length?`<div class="chips wrap">${ps.map(p=>`<button class="chip" onclick="useProf('${p.id}')"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${p.col==='rose'?'#e8779c':p.col};margin-right:6px"></span>Je suis ${esc(p.name)}</button>`).join('')}</div><div class="lbl">Ou bien</div>`:''}
+  <div class="row"><input id="whon" placeholder="Ton prénom" value="${ps.some(p=>p.name===st.name)?'':esc(st.name||'')}"><button class="btn" style="flex:none" onclick="newProf()">C'est moi</button></div>`)}
+
+// ---------- Photo de fond (rangée sur ce téléphone, clé celine-bg ; copie dans le profil) ----------
 let bgPhoto=null;try{bgPhoto=localStorage.getItem('celine-bg')}catch(e){}
 function applyPhoto(){
   const on=!!bgPhoto;document.documentElement.classList.toggle('has-ph',on);
@@ -553,14 +582,15 @@ function pickPhoto(inp){
   img.onload=()=>{const k=Math.min(1,1400/Math.max(img.width,img.height)),c=document.createElement('canvas');
     c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
     let q=.82,d=c.toDataURL('image/jpeg',q);while(d.length>1.6e6&&q>.4){q-=.12;d=c.toDataURL('image/jpeg',q)}
-    try{localStorage.setItem('celine-bg',d);bgPhoto=d;applyPhoto();colorSheet();toast('Photo de fond mise 📷')}
+    try{localStorage.setItem('celine-bg',d);bgPhoto=d;applyPhoto();photoUp();colorSheet();toast('Photo de fond mise 📷')}
     catch(e){toast('Photo trop lourde pour ce téléphone, essaie une autre')}};
   img.onerror=()=>{URL.revokeObjectURL(url);toast('Impossible de lire cette photo')};
   img.src=url;
 }
-function delPhoto(){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto();colorSheet()}
-function setVeil(v){st.bgVeil=+v;saveLocal();applyPhoto()}
-function setBlur(on){st.bgBlur=on?1:0;saveLocal();applyPhoto()}
+function delPhoto(){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto();photoUp();colorSheet()}
+function setVeil(v){st.bgVeil=+v;saveLocal();applyPhoto();clearTimeout(veilT);veilT=setTimeout(profSave,800)}
+let veilT;
+function setBlur(on){st.bgBlur=on?1:0;profSave();applyPhoto()}
 function photoBlock(){
   const veil=st.bgVeil??0.35;
   return `<div class="lbl">📷 Photo de fond</div>
@@ -679,7 +709,8 @@ agenda(){
 function settings(){
   sheet(`<h3>⚙️ Réglages</h3>
   <div class="lbl">Ton prénom (sur ce téléphone)</div>
-  <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="render()">
+  <input value="${esc(st.name)}" placeholder="Céline" oninput="st.name=this.value.trim()||'Céline';saveLocal()" onchange="profSave();render()">
+  <p class="mut">Ce téléphone : <b>${esc((myProf()||{}).name||'pas encore choisi')}</b> · <span class="link" onclick="whoSheet()">changer</span></p>
   ${themeBlock()}
   ${notifBlock()}
   ${shareBlock()}
@@ -755,7 +786,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.8';
+const APPV='2026-11-01.9';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -789,7 +820,7 @@ const asMap=a=>{const o={};(a||[]).forEach(x=>{if(x&&x.id)o[x.id]=x});return o};
 function pack(s){
   const meals={};for(let d=0;d<7;d++)for(const k of['m','s']){const u=s.mu[d+k]||0,v=(s.meals[d]||{})[k]||'';if(u||v)meals[d+k]={v,u}}
   const hist={};for(const k in s.hist)hist[hk(k)]=s.hist[k];
-  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),shifts:asMap(s.shifts),sched:s.sched,meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
+  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),shifts:asMap(s.shifts),profiles:asMap(s.profiles),sched:s.sched,meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
 }
 function merge(a,b){
   a=a||{};b=b||{};const g={...(a.gone||{})};for(const k in b.gone||{})g[k]=Math.max(g[k]||0,b.gone[k]);
@@ -799,7 +830,7 @@ function merge(a,b){
   const meals={...(a.meals||{})};for(const k in b.meals||{})meals[k]=newer(meals[k],b.meals[k]);
   const hist={...(a.hist||{})};for(const k in b.hist||{})hist[k]=Math.max(hist[k]||0,b.hist[k]);
   const sched={...(a.sched||{})},so=schedMin();for(const k in b.sched||{})sched[k]=newer(sched[k],b.sched[k]);for(const k in sched)if(k<so)delete sched[k];
-  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),shifts:lst('shifts'),sched,meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
+  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),shifts:lst('shifts'),profiles:lst('profiles'),sched,meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
 }
 function unpack(m){
   const vals=o=>Object.values(o||{}).sort((x,y)=>x.id<y.id?-1:1);
@@ -807,7 +838,7 @@ function unpack(m){
   st.meals={};st.mu={};for(const k in m.meals||{}){const d=k[0],t=k[1];st.mu[k]=m.meals[k].u||0;if(m.meals[k].v)(st.meals[d]=st.meals[d]||{})[t]=m.meals[k].v}
   st.memo=(m.memo&&m.memo.v)||'';st.memoU=(m.memo&&m.memo.u)||0;
   st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
-  st.shifts=vals(m.shifts);st.sched=m.sched||{};
+  st.shifts=vals(m.shifts);st.profiles=vals(m.profiles);st.sched=m.sched||{};applyMine();
   st.gone=m.gone||{};
 }
 const famURL=()=>FB+'/familles/'+FAM+'.json';
@@ -822,7 +853,7 @@ async function sync(){
     // Ce qui a été ajouté pendant l'envoi est gardé (sinon perdu) ; le prochain envoi s'en charge.
     const now=pack(st),m2=JSON.stringify(now)===JSON.stringify(local)?m:merge(now,m);
     if(JSON.stringify(m2)!==JSON.stringify(now)){unpack(m2);tidy();softRender()}
-    setSy('ok');
+    setSy('ok');if(!st.me&&!whoAsked&&!$('#ins').classList.contains('on')&&!$('#sh').classList.contains('on')){whoAsked=true;setTimeout(whoSheet,400)}
   }catch(e){setSy('err')}
   syncing=false;if(again){again=false;sync()}
 }

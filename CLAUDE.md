@@ -55,3 +55,8 @@ Jours de plus de 120 jours supprimés (`schedMin()`, aussi dans `merge()`). Hora
 `applyTheme()` calcule toutes les teintes depuis la couleur (`mix()`, assombrie si trop claire) et injecte `<style id="thm">` ; rose + fleurs = aucun style ajouté.
 Choix par le bouton 🎨 en haut (`colorSheet()`) ou dans Réglages. Phrases neutres (`QUOTES2`) si le motif n'est pas « fleurs ».
 Photo de fond : `localStorage` clé `celine-bg` (réduite à 1400 px, JPEG compressé, jamais partagée) ; `#bgph` fixe derrière tout, voile `st.bgVeil` (0.35 par défaut) + flou `st.bgBlur` (non par défaut) ; textes hors cadres sur une étiquette semi-opaque (`applyPhoto()`, `photoBlock()`).
+
+## Profils (sauvegarde des réglages personnels)
+`st.profiles` (partagé) = `{id,name,col,motif,veil,blur,ph,u}` ; `st.me` (local) = profil de ce téléphone. Photo du profil : `FB/familles/FAM-photo/<id>.json`.
+Question « Qui utilise ce téléphone ? » (`whoSheet()`) après la première synchro si `st.me` est vide ; `applyMine()` (appelé dans `unpack()`) remet prénom, couleurs et photo du profil.
+Tout réglage perso passe par `profSave()` / `photoUp()`. `navigator.storage.persist()` demandé au démarrage.
