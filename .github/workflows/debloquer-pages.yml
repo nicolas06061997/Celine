@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: "Publication bloquée à annuler (commit)"
+        description: "Publication bloquée (commit)"
         required: true
 
 permissions:
   pages: write
+  deployments: write
   actions: read
   contents: read
 
@@ -16,11 +17,18 @@ jobs:
   debloquer:
     runs-on: ubuntu-latest
     steps:
-      - name: État de la publication bloquée
-        run: gh api "repos/${{ github.repository }}/pages/deployments/${{ inputs.sha }}" || true
+      - name: Voir et clôturer les publications restées « en cours »
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Annuler la publication bloquée
-        run: gh api -X POST "repos/${{ github.repository }}/pages/deployments/${{ inputs.sha }}/cancel" && echo "annulée"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          echo "Publication Pages :"; gh api "repos/$R/pages/deployments/${{ inputs.sha }}" || true
+          gh api -X POST "repos/$R/pages/deployments/${{ inputs.sha }}/cancel" || true
+          for id in $(gh api "repos/$R/deployments?environment=github-pages&per_page=30" --jq '.[].id'); do
+            st=$(gh api "repos/$R/deployments/$id/statuses?per_page=1" --jq '.[0].state // "aucun"')
+            sha=$(gh api "repos/$R/deployments/$id" --jq '.sha')
+            echo "déploiement $id ($sha) : $st"
+            if [ "$st" = "in_progress" ] || [ "$st" = "queued" ] || [ "$st" = "pending" ] || [ "$st" = "aucun" ]; then
+              gh api -X POST "repos/$R/deployments/$id/statuses" -f state=error -f description="Débloqué" >/dev/null && echo "  -> clôturé"
+            fi
+          done
