@@ -6,6 +6,7 @@ on:
     - cron: "41 6 * * *"   # vers 7h40 l'hiver, 8h40 l'été (heure belge)
 
 permissions:
+  contents: read
   actions: write
 
 jobs:
@@ -18,5 +19,9 @@ jobs:
           node-version: 20
       - run: npm install --no-save web-push@3.6.7
       - run: node scripts/anniversaires.js
-      # GitHub arrête les tâches planifiées après 60 jours sans changement : ceci les garde actives.
-      - uses: gautamkrishnar/keepalive-workflow@v2
+      # GitHub arrête les tâches planifiées après 60 jours sans changement : on la réactive à chaque passage.
+      - name: Rester active
+        if: always()
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/anniversaires.yml/enable" || true
+        env:
+          GH_TOKEN: ${{ github.token }}
