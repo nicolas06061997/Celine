@@ -639,12 +639,13 @@ menage(){
   const all=st.tasks,dn=all.filter(isDone).length,ti=todayI();
   const cnt=i=>{const l=all.filter(t=>t.day===i);return l.length?l.filter(isDone).length+'/'+l.length:''};
   const list=dayF===8?all:all.filter(t=>t.day===dayF);
-  const sorted=[...list].sort((a,b)=>isDone(a)-isDone(b));
+  // « Tout » : rangé par jour (lundi → dimanche, puis « n'importe quand »), les tâches faites en bas de chaque jour.
+  const sorted=[...list].sort((a,b)=>(dayF===8?a.day-b.day:0)||isDone(a)-isDone(b));
   return `<div class="card"><h2>✨ Ma semaine<small>${dn}/${all.length} faites</small></h2><div class="bar"><i style="width:${all.length?dn/all.length*100:0}%"></i></div></div>
   <div class="chips">${[...DAYS.map(d=>d.slice(0,3)),'🗓️ Semaine','Tout'].map((d,i)=>`<button class="chip ${i===dayF?'on':''}" onclick="dayF=${i};render()">${i===ti?'⭐ ':''}${d}${i<8&&cnt(i)?`<span class="n">${cnt(i)}</span>`:''}</button>`).join('')}</div>
   <div class="card">
     <h2>${dayF<7?(dayF===ti?'Aujourd\'hui · ':'')+DAYS[dayF]:dayF===7?'🗓️ N\'importe quand cette semaine':'Toutes les tâches'}</h2>
-    ${sorted.length?sorted.map(t=>taskRow(t,dayF===8)).join(''):`<div class="empty"><b>🌷</b>Aucune tâche ici.<br>Appuie sur <b style="display:inline;font-size:inherit;color:var(--pri)">+</b> pour en ajouter une.</div>`}
+    ${sorted.length?(dayF===8?[0,1,2,3,4,5,6,7].map(d=>{const l=sorted.filter(t=>t.day===d);return l.length?`<div class="cat">${d<7?(d===ti?'⭐ ':'')+DAYS[d]:'🗓️ N\'importe quand'} <span class="rep">${l.filter(isDone).length}/${l.length}</span></div>${l.map(t=>taskRow(t)).join('')}`:''}).join(''):sorted.map(t=>taskRow(t)).join('')):`<div class="empty"><b>🌷</b>Aucune tâche ici.<br>Appuie sur <b style="display:inline;font-size:inherit;color:var(--pri)">+</b> pour en ajouter une.</div>`}
   </div>
   <p class="mut" style="text-align:center">Les tâches 🔁 repartent à zéro chaque lundi.<br>Appuie sur le nom d'une tâche pour la modifier, sur 🗑️ pour la supprimer.</p>`;
 },
@@ -787,7 +788,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-01.12';
+const APPV='2026-11-02.1';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
