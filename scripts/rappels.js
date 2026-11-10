@@ -16,6 +16,8 @@ function wallBE(d) {
 }
 const dayKey = (y, m, d) => y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 const hFmt = t => { const [h, m] = t.split(':'); return (+h) + 'h' + (m !== '00' ? m : ''); };
+// « Dans 1 h 20 », « Dans 1 heure », « Dans 35 minutes » (arrondi à 5 min)
+const inMin = l => { const r = Math.max(5, Math.round(l / 5) * 5); return r < 60 ? 'Dans ' + r + ' minutes' : r === 60 ? 'Dans 1 heure' : 'Dans ' + Math.floor(r / 60) + ' h ' + String(r % 60).padStart(2, '0'); };
 const ICON = { rdv: '📅', ecole: '🎒', sante: '🩺', autre: '⭐' };
 
 // Liste des rappels à envoyer maintenant : [{key, title, body, tag}]
@@ -27,7 +29,7 @@ function reminders(events, now) {
     if (!e || !e.date || e.rem === false) continue;
     const [y, m, d] = e.date.split('-').map(Number);
     // Date de l'événement cette année (s'il revient chaque année) ou sa vraie date.
-    const occ = yy => e.yearly ? dayKey(yy, m, d) : e.date;
+    const occ = yy => e.yearly ? dayKey(yy, m, Math.min(d, new Date(Date.UTC(yy, m, 0)).getUTCDate())) : e.date;   // 29 février → 28 les autres années
     const isToday = occ(n.y) === today, isTomorrow = occ(tm.y) === tomorrow;
     const anniv = e.type === 'anniv' || (e.yearly && /anniv/i.test(e.t || ''));
     if (anniv) {
@@ -40,7 +42,7 @@ function reminders(events, now) {
     if (n.h >= 19 && isTomorrow) out.push({ key: 'rv-' + e.id + '-' + tomorrow, title: '🔔 Demain, ne pas oublier', body: ic + ' ' + e.t + at, tag: 'veille-' + e.id });
     if (e.time && isToday) {
       const [hh, mm] = e.time.split(':').map(Number), left = Date.UTC(n.y, n.m - 1, n.d, hh, mm) / 6e4 - n.t;
-      if (left > 0 && left <= 95) out.push({ key: 'rh-' + e.id + '-' + today + '-' + e.time, title: '⏰ ' + (left > 75 ? 'Dans 1 h 30' : left > 50 ? 'Dans 1 heure' : 'Dans ' + Math.max(5, Math.round(left / 5) * 5) + ' minutes'), body: ic + ' ' + e.t + at, tag: 'heure-' + e.id });
+      if (left > 0 && left <= 95) out.push({ key: 'rh-' + e.id + '-' + today + '-' + e.time, title: '⏰ ' + inMin(left), body: ic + ' ' + e.t + at, tag: 'heure-' + e.id });
     }
   }
   return out;

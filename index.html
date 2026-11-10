@@ -272,7 +272,7 @@ function taskSheet(id){
   <div class="lbl">Quel jour ?</div><div class="chips wrap">${[...DAYS,'N\'importe quand'].map((d,i)=>`<button class="chip dch ${i===t.day?'on':''}" onclick="setDay(${i},this)">${i<7?d.slice(0,3)+'.':'🗓️ '+d}</button>`).join('')}</div>
   <label class="tog"><input type="checkbox" id="fr" ${t.rep?'checked':''}> 🔁 Revient chaque semaine</label>
   <div class="row"><button class="btn" onclick="saveTask()">Enregistrer</button>${id?`<button class="btn del" onclick="delTask()">Supprimer</button>`:''}</div>`);
-  if(!id)setTimeout(()=>$('#ft').focus(),250);
+  if(!id)setTimeout(()=>{const f=$('#ft');if(f)f.focus()},250);
 }
 function cycEmoji(){const L=[...new Set(SUG.map(s=>s[0]))];ed.e=L[(L.indexOf(ed.e)+1)%L.length];$('#fe').textContent=ed.e}
 function pickSug(i){ed.e=SUG[i][0];$('#fe').textContent=ed.e;$('#ft').value=SUG[i][1]}
@@ -281,7 +281,8 @@ function setDay(i,b){ed.day=i;document.querySelectorAll('.dch').forEach(x=>x.cla
 function saveTask(){
   const n=$('#ft').value.trim();if(!n){$('#ft').focus();return}
   const rep=$('#fr').checked;
-  if(ed.id){Object.assign(st.tasks.find(x=>x.id===ed.id),{t:n,e:ed.e,day:ed.day,rep,u:Date.now()})}
+  const cur=ed.id&&st.tasks.find(x=>x.id===ed.id);   // (elle a pu être supprimée sur l'autre téléphone entre-temps)
+  if(cur){Object.assign(cur,{t:n,e:ed.e,day:ed.day,rep,u:Date.now()})}
   else st.tasks.push({id:uid(),t:n,e:ed.e,day:ed.day,rep,done:null,u:Date.now()});
   dayF=ed.day;save();closeSheet();render();
 }
@@ -300,7 +301,7 @@ function addItem(name){
   buzz();save();render();
   const i=$('#ni');if(i){i.focus()}
 }
-function toggleItem(id){const i=st.shop.find(x=>x.id===id);i.done=!i.done;i.u=Date.now();buzz();save();render()}
+function toggleItem(id){const i=st.shop.find(x=>x.id===id);if(!i){render();return}i.done=!i.done;i.u=Date.now();buzz();save();render()}
 function delItem(id){gone(id);st.shop=st.shop.filter(x=>x.id!==id);save();render()}
 function clearTaken(){st.shop=st.shop.filter(x=>{if(x.done)gone(x.id);return !x.done});save();render();toast('Articles pris retirés 🧺')}
 function shareList(){
@@ -311,10 +312,10 @@ function shareList(){
   else navigator.clipboard.writeText(txt).then(()=>toast('Liste copiée 📋'),()=>toast('Impossible de copier'));
 }
 function changeCat(id){
-  const it=st.shop.find(x=>x.id===id);
+  const it=st.shop.find(x=>x.id===id);if(!it){render();return}
   sheet(`<h3>Rayon pour « ${esc(it.t)} »</h3><div class="chips wrap">${CATS.map((c,i)=>`<button class="chip ${i===it.c?'on':''}" onclick="setCat('${id}',${i})">${c[1]} ${c[0]}</button>`).join('')}</div>`);
 }
-function setCat(id,i){Object.assign(st.shop.find(x=>x.id===id),{c:i,u:Date.now()});save();closeSheet();render()}
+function setCat(id,i){const it=st.shop.find(x=>x.id===id);if(it)Object.assign(it,{c:i,u:Date.now()});save();closeSheet();render()}
 
 // ---------- Repas ----------
 function setMeal(d,k,v){(st.meals[d]=st.meals[d]||{})[k]=v;st.mu[d+k]=Date.now();save()}
@@ -336,7 +337,7 @@ function nextOcc(e){
   const t=day0(new Date());
   const [y,m,d]=e.date.split('-').map(Number);
   let dt=new Date(y,m-1,d);
-  if(e.yearly){dt=new Date(t.getFullYear(),m-1,d);if(dt<t)dt=new Date(t.getFullYear()+1,m-1,d)}
+  if(e.yearly){const at=yy=>new Date(yy,m-1,Math.min(d,new Date(yy,m,0).getDate()));dt=at(t.getFullYear());if(dt<t)dt=at(t.getFullYear()+1)}   // 29 février → 28 les autres années
   return {dt,n:Math.round((dt-t)/864e5),age:e.type==='anniv'&&y>1900&&y<t.getFullYear()?dt.getFullYear()-y:0};
 }
 function upcoming(){return st.events.map(e=>({e,...nextOcc(e)})).filter(x=>x.n>=-1).sort((a,b)=>a.n-b.n||(a.e.time||'').localeCompare(b.e.time||''))}
@@ -360,7 +361,7 @@ function setType(t,b){ed.type=t;document.querySelectorAll('.tch').forEach(x=>x.c
 function saveEv(){
   const t=$('#et').value.trim(),d=$('#ed').value;if(!t){$('#et').focus();return}if(!d){$('#ed').focus();return}
   const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,rem:$('#er').checked,u:Date.now()};
-  if(ed.id)Object.assign(st.events.find(x=>x.id===ed.id),o);else st.events.push({id:uid(),...o});
+  const cur=ed.id&&st.events.find(x=>x.id===ed.id);if(cur)Object.assign(cur,o);else st.events.push({id:uid(),...o});
   save();closeSheet();render();
 }
 function delEv(){gone(ed.id);st.events=st.events.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Événement supprimé')}
@@ -368,7 +369,7 @@ function delEv(){gone(ed.id);st.events=st.events.filter(x=>x.id!==ed.id);save();
 // ---------- Calendrier ----------
 let calM=null,calSel=null,calX=null;
 // Jour du mois m (0-11) de l'année y où tombe l'événement, sinon 0.
-function occOn(e,y,m){const [ey,em,ed]=e.date.split('-').map(Number);return (e.yearly||ey===y)&&em-1===m&&ed<=new Date(y,m+1,0).getDate()?ed:0}
+function occOn(e,y,m){const [ey,em,ed]=e.date.split('-').map(Number);const nd=new Date(y,m+1,0).getDate();return (e.yearly||ey===y)&&em-1===m&&(ed<=nd||e.yearly)?Math.min(ed,nd):0}
 function calMove(k){calM=new Date(calM.getFullYear(),calM.getMonth()+k,1);render()}
 function calPick(k){if(paint){setSched(k,paint==='x'||shiftOn(k)&&shiftOn(k).id===paint?'':paint);buzz();render();return}if(k===calSel){evSheet();return}calSel=k;render()}
 // Horaire : st.sched[date]={v:id du type,u}
@@ -436,6 +437,7 @@ function repeatSheet(){
   <div class="lbl">Jusqu'au</div><input type="date" id="rt" value="${ymd(end<=t?new Date(t.getFullYear()+1,11,31):end)}">
   <div class="row" style="margin-top:14px"><button class="btn" onclick="doRepeat()">📋 Recopier</button></div>`)}
 function doRepeat(){
+  if(!$('#rf').value||!$('#rt').value){toast('Vérifie les dates');return}
   const [y,m,d]=$('#rf').value.split('-').map(Number),mon=new Date(y,m-1,d);mon.setDate(mon.getDate()-(mon.getDay()+6)%7);
   const L=$('#r2').checked?14:7,to=$('#rt').value,src=[];
   for(let i=0;i<L;i++){const x=new Date(mon);x.setDate(mon.getDate()+i);src.push(st.sched[ymd(x)]||{})}
@@ -538,7 +540,7 @@ function colorSheet(){
   <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSheet()">C'est parfait ✓</button></div>`)}
 // ---------- Profils : retrouver ses réglages (prénom, couleurs, photo) si le téléphone les perd ----------
 // st.me = profil de ce téléphone (local). Les profils sont partagés (st.profiles) ; la photo est rangée à part : FB/familles/FAM-photo/<id>.
-let whoAsked=false;
+let whoAsked=false,phGet=null;
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}   // demande au téléphone de ne pas effacer les données
 const myProf=()=>st.me&&(st.profiles||[]).find(p=>p.id===st.me);
 const photoURL=id=>FB+'/familles/'+FAM+'-photo/'+id+'.json';
@@ -551,9 +553,10 @@ function applyMine(){const p=myProf();if(!p)return;
   const ch=st.name!==p.name||colOf()!==p.col||motOf()!==p.motif||st.bgVeil!==p.veil||st.bgBlur!==p.blur;
   Object.assign(st,{name:p.name,col:p.col,motif:p.motif,bgVeil:p.veil,bgBlur:p.blur});
   if(ch){saveLocal();applyTheme();applyPhoto()}
-  if((p.ph||0)!==(st.phU||0)){st.phU=p.ph||0;saveLocal();
-    if(!p.ph){try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto()}
-    else fetch(photoURL(p.id),{cache:'no-store'}).then(r=>r.json()).then(d=>{if(d){try{localStorage.setItem('celine-bg',d)}catch(e){}bgPhoto=d;applyPhoto()}}).catch(()=>{})}
+  if((p.ph||0)!==(st.phU||0)){
+    if(!p.ph){st.phU=0;saveLocal();try{localStorage.removeItem('celine-bg')}catch(e){}bgPhoto=null;applyPhoto()}
+    else if(phGet!==p.ph){const ph=phGet=p.ph;   // (si le téléchargement rate, on réessaie à la prochaine synchro)
+      fetch(photoURL(p.id),{cache:'no-store'}).then(r=>r.json()).then(d=>{if(d){try{localStorage.setItem('celine-bg',d)}catch(e){}bgPhoto=d;applyPhoto()}st.phU=ph;saveLocal()}).catch(()=>{}).finally(()=>{phGet=null})}}
 }
 function useProf(id){st.me=id;st.phU=-1;saveLocal();applyMine();closeSheet();render();toast('Bonjour '+(st.name||'')+' 👋')}
 function newProf(){const n=($('#whon').value||'').trim();if(!n){$('#whon').focus();return}
@@ -627,7 +630,7 @@ home(){
     <div class="card" onclick="go('courses')"><h2>🛒 Courses</h2><div class="big">${left}</div><div class="mut">article${left>1?'s':''} à acheter</div></div>
     <div class="card" onclick="go('menage')"><h2>✨ Semaine</h2><div class="big">${Math.round(wk*100)}%</div><div class="mut">du ménage fait</div></div>
   </div>
-  ${(()=>{const a=shiftOn(ymd(d)),b=shiftOn(ymd(new Date(d.getTime()+864e5)));return a||b?`<div class="card" onclick="go('agenda')"><h2>💼 Horaire</h2>
+  ${(()=>{const a=shiftOn(ymd(d)),b=shiftOn(ymd(new Date(d.getFullYear(),d.getMonth(),d.getDate()+1)));return a||b?`<div class="card" onclick="go('agenda')"><h2>💼 Horaire</h2>
     ${a?`<div class="shrow" style="background:${a.c}">Aujourd'hui : <b>${shLabel(a)}</b></div>`:''}${b?`<div class="shrow" style="background:${b.c}">Demain : <b>${shLabel(b)}</b></div>`:''}</div>`:''})()}
   <div class="card" onclick="go('repas')"><h2>🍽️ Au menu aujourd'hui</h2>
     <div class="item"><span class="e">☀️</span><span class="t">${m.m?esc(m.m):'<span class="mut">Midi : pas encore prévu</span>'}</span></div>
@@ -733,10 +736,15 @@ function backup(){
 }
 function restore(inp){
   const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
+  r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name,n=Date.now();st=Object.assign(def(),s,{fam,name});
+    // Sinon la version partagée (plus récente, ou la suppression) reprendrait le dessus à la synchro.
+    st.gone={};[...st.tasks,...st.shop,...st.events,...st.shifts].forEach(x=>x.u=n);for(const k in st.sched)st.sched[k].u=n;for(let d=0;d<7;d++)for(const k of['m','s'])st.mu[d+k]=n;st.memoU=n;
+    tidy();save();applyTheme();applyPhoto();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const nm=st.name,sc={};for(const k in st.sched)sc[k]={v:'',u:n};st=def();st.name=nm;st.sched=sc;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const sc={};for(const k in st.sched)sc[k]={v:'',u:n};
+    const mine={};for(const k of['name','me','col','motif','bgVeil','bgBlur','phU','notif','mealsAuto','noBanner','profiles','pat'])if(st[k]!==undefined)mine[k]=st[k];
+    st=Object.assign(def(),mine);st.sched=sc;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 // Le lien peut s'ouvrir n'importe où (WhatsApp, Messenger, Safari, Chrome…) : un grand écran guide pas à pas.
@@ -788,7 +796,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-02.1';
+const APPV='2026-11-10.1';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -836,7 +844,7 @@ function merge(a,b){
 }
 function unpack(m){
   const vals=o=>Object.values(o||{}).sort((x,y)=>x.id<y.id?-1:1);
-  st.tasks=vals(m.tasks).map(t=>({done:null,...t}));st.shop=vals(m.shop).map(i=>({done:false,...i}));st.events=vals(m.events).map(e=>({time:'',yearly:false,...e}));
+  st.tasks=vals(m.tasks).map(t=>({done:null,...t}));st.shop=vals(m.shop).map(i=>({done:false,...i,c:CATS[i.c]?i.c:catOf(i.t||'')}));st.events=vals(m.events).map(e=>({time:'',yearly:false,...e}));
   st.meals={};st.mu={};for(const k in m.meals||{}){const d=k[0],t=k[1];st.mu[k]=m.meals[k].u||0;if(m.meals[k].v)(st.meals[d]=st.meals[d]||{})[t]=m.meals[k].v}
   st.memo=(m.memo&&m.memo.v)||'';st.memoU=(m.memo&&m.memo.u)||0;
   st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
