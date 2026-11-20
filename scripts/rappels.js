@@ -3,6 +3,7 @@
 //  - Rendez-vous et autres événements : la veille dès 19h, et entre 1 h 30 et quelques minutes avant s'il y a une heure
 //    (GitHub lance la tâche toutes les 30 à 45 min en pratique, d'où cette fenêtre large).
 //  - Poubelles : la veille dès 19h (une seule notification pour toutes les collectes du lendemain).
+//  - Ménage « je m'en occupe » : aux autres téléphones (une notification par personne, avec toutes ses tâches prises).
 //  - Coup de pouce et petit mot : dès qu'ils sont envoyés (au prochain passage), seulement aux autres téléphones.
 // Chaque rappel n'est envoyé qu'une fois : les rappels déjà envoyés sont notés dans FB/familles/FAM-sent.
 // La clé d'envoi est dans FB/familles/FAM-pushkey (créée par l'appli).
@@ -79,11 +80,28 @@ function msgReminders(msgs, profiles, now) {
   return out;
 }
 
+// Ménage : tâches prises (« je m'en occupe ») ces 6 dernières heures et pas encore annoncées.
+function claimReminders(tasks, profiles, now, sent) {
+  const n = wallBE(now), dn = dayNum(dayKey(n.y, n.m, n.d)), dow = (new Date(dn * 864e5).getUTCDay() + 6) % 7;
+  const mon = new Date((dn - dow) * 864e5), wk = dayKey(mon.getUTCFullYear(), mon.getUTCMonth() + 1, mon.getUTCDate());
+  const by = {};
+  for (const t of Object.values(tasks || {})) {
+    if (!t || t.whoW !== wk || !t.who || t.who === '-' || !t.wu || now.getTime() - t.wu > 6 * 3600e3 || t.done === wk) continue;
+    const k = 'cl-' + t.id + '-' + t.wu;
+    if (!sent[k]) (by[t.who] = by[t.who] || []).push({ t, k });
+  }
+  return Object.entries(by).map(([who, l]) => {
+    const name = ((profiles || {})[who] || {}).name || '';
+    const is = s => s.me ? s.me === who : !!name && (s.name || '') === name;
+    return { key: l.map(x => x.k).join('|'), mark: l.map(x => x.k), title: '🙋 ' + (name || 'Quelqu’un') + ' s’en occupe', body: l.map(x => (x.t.e || '🧹') + ' ' + x.t.t).join(' · '), tag: 'menage-' + who, url: './', to: s => !is(s) };
+  });
+}
+
 async function main() {
   const get = async p => (await (await fetch(url(p))).json()) || {};
   const data = await get(''), sent = await get('-sent');
   const now = new Date();
-  const todo = [...reminders(data.events, now), ...binReminders(data.bins, now), ...msgReminders(data.msgs, data.profiles, now)].filter(r => !sent[r.key]);
+  const todo = [...reminders(data.events, now), ...binReminders(data.bins, now), ...msgReminders(data.msgs, data.profiles, now), ...claimReminders(data.tasks, data.profiles, now, sent)].filter(r => !sent[r.key]);
   console.log(todo.length + ' rappel(s) à envoyer', todo.map(r => r.title + ' / ' + r.body));
   if (!todo.length) return;
   const key = await get('-pushkey');
@@ -92,7 +110,7 @@ async function main() {
   webpush.setVapidDetails('https://nicolas06061997.github.io/Celine/', key.pub, key.priv);
   const subs = await get('-push');
   for (const r of todo) {
-    const { to, key: _k, ...msg } = r;
+    const { to, key: _k, mark, ...msg } = r;
     for (const [id, s] of Object.entries(subs)) {
       if (to && !to(s)) continue;
       try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(msg), { TTL: 3 * 3600 }); console.log('envoyé à', s.name || id); }
@@ -102,7 +120,7 @@ async function main() {
         if (e.statusCode === 404 || e.statusCode === 410) { await fetch(FB + '/familles/' + FAM + '-push/' + id + '.json', { method: 'DELETE' }); delete subs[id]; }
       }
     }
-    sent[r.key] = Date.now();
+    if (mark) for (const k of mark) sent[k] = Date.now(); else sent[r.key] = Date.now();
   }
   // On garde la trace des rappels envoyés pendant 3 jours.
   for (const k in sent) if (sent[k] < Date.now() - 3 * 864e5) delete sent[k];
@@ -110,4 +128,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
-module.exports = { reminders, binReminders, msgReminders };
+module.exports = { reminders, binReminders, msgReminders, claimReminders };

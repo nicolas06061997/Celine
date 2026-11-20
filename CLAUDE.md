@@ -30,6 +30,11 @@ Toute modification doit mettre à jour `u` (ou `mu` pour les repas, `memoU` pour
 Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",".write":"$code.length >= 20"}}}}`
 La session de développement ne peut pas joindre Firebase : tester avec un faux serveur (route Playwright).
 
+## Ménage : « je m'en occupe »
+Toucher le dessin d'une tâche (`claim()`) : `t.who`=profil, `t.whoW`=semaine (`weekKey()`), `t.wu`=heure ; `who:'-'` = personne cette semaine.
+`t.own` = « Toujours fait par » (fenêtre de la tâche) ; `whoOf()` = pris cette semaine, sinon `own`. `t.by`/`t.byW` = qui l'a cochée (« ✓ Fait par… »).
+Pastille ronde à la couleur du profil (`profCol()`). Le lundi tout repart tout seul (rien à effacer). Notification aux autres : `claimReminders` (une par personne, 6 h max).
+
 ## Courses et repas
 Quantité écrite avec l'article (`parseQ()` : « lait x2 », « 3x yaourts ») ; rajouter un article déjà dans la liste fait +1 (`shopAdd(nom,1)`).
 « Souvent acheté » : `favList()`, `favSheet()` (📌 / ✕).

@@ -164,6 +164,9 @@ body.hasfab main{padding-bottom:100px}
 .ib{display:block;font-weight:600;white-space:pre-wrap;overflow-wrap:anywhere}.ib a,.tels a{color:var(--pri);font-weight:800}
 .tels{background:var(--pri3);border-radius:14px;padding:10px 12px;margin-top:14px;font-size:14.5px;line-height:1.8}
 canvas.cf{position:fixed;inset:0;pointer-events:none;z-index:25}
+.item button.e{padding:0;flex:none}
+.pst{width:30px;height:30px;flex:none;border-radius:50%;color:#fff;font-weight:800;font-size:15px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.18);margin:0 -1px}
+.whol{display:block;font-size:13px;font-weight:700;margin-top:2px}.item.done .whol{text-decoration:none;display:inline-block;width:100%}
 </style>
 </head>
 <body>
@@ -272,23 +275,34 @@ function ring(p,size=64){const r=size/2-6,c=2*Math.PI*r;
   return `<svg class="ring" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--pri2)" stroke-width="7"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--pri)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c*p} ${c}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${size/4.2}">${Math.round(p*100)}%</text></svg>`}
 
 // ---------- Ménage ----------
+// « Qui s'en occupe ? » : t.who/t.whoW/t.wu = pris cette semaine-là (who '-' = personne), t.own = toujours la même personne, t.by = qui l'a cochée.
+const whoOf=t=>t.whoW===weekKey()?(t.who==='-'?'':t.who||''):t.own||'';
+const profCol=id=>{const p=(st.profiles||[]).find(x=>x.id===id);let c=!p||!p.col||p.col==='rose'?'#e8779c':p.col;while(lum(c)>.6)c=mix(c,'#000000',.12);return c};
+function claim(id){const t=st.tasks.find(x=>x.id===id);if(!t||!needMe())return;const mine=whoOf(t)===st.me,now=Date.now();
+  Object.assign(t,{who:mine?'-':st.me,whoW:weekKey(),wu:now,u:now});buzz();save();render();
+  toast(mine?'Tu ne t\'en occupes plus':'🙋 Tu t\'en occupes : les autres le voient')}
 function taskRow(t,showDay){
-  return `<div class="item ${isDone(t)?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button><span class="e">${esc(t.e)}</span><span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}${showDay?` <span class="rep">· ${t.day<7?DAYS[t.day]:'Semaine'}</span>`:''}</span><button class="x" onclick="askDelTask('${t.id}')" aria-label="Supprimer">🗑️</button></div>`}
+  const d=isDone(t),w=d?(t.by&&t.byW===weekKey()?t.by:whoOf(t)):whoOf(t),p=w&&(st.profiles||[]).find(x=>x.id===w),me=w===st.me,c=p?profCol(w):'';
+  const left=p?`<button class="pst" style="background:${c}" onclick="claim('${t.id}')" aria-label="Qui s'en occupe">${esc((p.name||'?')[0].toUpperCase())}</button>`
+    :`<button class="e" onclick="claim('${t.id}')" aria-label="Je m'en occupe">${esc(t.e)}</button>`;
+  const lab=p?`<span class="whol" style="color:${c}">${d?'✓ Fait par '+(me?'moi':esc(p.name)):'🙋 '+(me?'Je m\'en occupe':esc(p.name)+' s\'en occupe')}</span>`:'';
+  return `<div class="item ${d?'done':''}"><button class="ck" onclick="toggleTask('${t.id}')" aria-label="Fait">✓</button>${left}<span class="t" onclick="taskSheet('${t.id}')">${esc(t.t)}${t.rep?' <span class="rep">🔁</span>':''}${showDay?` <span class="rep">· ${t.day<7?DAYS[t.day]:'Semaine'}</span>`:''}${lab}</span><button class="x" onclick="askDelTask('${t.id}')" aria-label="Supprimer">🗑️</button></div>`}
 function askDelTask(id){ed={id};delTask()}
 function toggleTask(id){
   const t=st.tasks.find(x=>x.id===id);if(!t)return;
-  t.done=isDone(t)?null:weekKey();t.u=Date.now();buzz();save();render();
+  t.done=isDone(t)?null:weekKey();t.u=Date.now();if(t.done&&st.me){t.by=st.me;t.byW=t.done}buzz();save();render();
   if(t.done){const list=st.tasks.filter(x=>x.day===t.day);
     if(list.every(isDone)){confetti();toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo '+(st.name||'Céline')+', tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉')}}
 }
 function taskSheet(id){
   const t=id?st.tasks.find(x=>x.id===id):{e:'🧹',t:'',day:dayF<8?dayF:todayI(),rep:true};
-  ed={id:id||'',e:t.e,day:t.day};
+  ed={id:id||'',e:t.e,day:t.day,own:t.own||''};
   sheet(`<h3>${id?'Modifier la tâche':'Nouvelle tâche'}</h3>
   <div class="row"><button class="chip" style="font-size:22px;padding:8px 12px" id="fe" onclick="cycEmoji()" aria-label="Changer l'image">${esc(t.e)}</button><input id="ft" value="${esc(t.t)}" placeholder="Ex : Passer l'aspirateur" ${id?'':'oninput="guessEmoji(this.value)"'}></div>
   ${id?'':`<div class="lbl">Idées</div><div class="chips">${SUG.map((s,i)=>`<button class="chip" onclick="pickSug(${i})">${s[0]} ${esc(s[1])}</button>`).join('')}</div>`}
   <div class="lbl">Quel jour ?</div><div class="chips wrap">${[...DAYS,'N\'importe quand'].map((d,i)=>`<button class="chip dch ${i===t.day?'on':''}" onclick="setDay(${i},this)">${i<7?d.slice(0,3)+'.':'🗓️ '+d}</button>`).join('')}</div>
   <label class="tog"><input type="checkbox" id="fr" ${t.rep?'checked':''}> 🔁 Revient chaque semaine</label>
+  ${(st.profiles||[]).length?`<div class="lbl">Toujours fait par</div><div class="chips wrap">${[{id:'',name:'Personne en particulier'},...st.profiles].map(p=>`<button class="chip och ${ed.own===p.id?'on':''}" onclick="ed.own='${p.id}';document.querySelectorAll('.och').forEach(x=>x.classList.remove('on'));this.classList.add('on')">${p.id?'🙋 ':''}${esc(p.name)}</button>`).join('')}</div>`:''}
   <div class="row"><button class="btn" onclick="saveTask()">Enregistrer</button>${id?`<button class="btn del" onclick="delTask()">Supprimer</button>`:''}</div>`);
   if(!id)setTimeout(()=>$('#ft').focus(),250);
 }
@@ -299,8 +313,10 @@ function setDay(i,b){ed.day=i;document.querySelectorAll('.dch').forEach(x=>x.cla
 function saveTask(){
   const n=$('#ft').value.trim();if(!n){$('#ft').focus();return}
   const rep=$('#fr').checked;
-  if(ed.id){Object.assign(st.tasks.find(x=>x.id===ed.id),{t:n,e:ed.e,day:ed.day,rep,u:Date.now()})}
-  else st.tasks.push({id:uid(),t:n,e:ed.e,day:ed.day,rep,done:null,u:Date.now()});
+  if(ed.id){const t=st.tasks.find(x=>x.id===ed.id),o={t:n,e:ed.e,day:ed.day,rep,u:Date.now()};
+    if((t.own||'')!==ed.own){o.own=ed.own;o.whoW=''}   // nouveau « toujours fait par » : il remplace ce qui avait été pris cette semaine
+    Object.assign(t,o)}
+  else st.tasks.push({id:uid(),t:n,e:ed.e,day:ed.day,rep,own:ed.own,done:null,u:Date.now()});
   dayF=ed.day;save();closeSheet();render();
 }
 function delTask(){gone(ed.id);st.tasks=st.tasks.filter(x=>x.id!==ed.id);save();closeSheet();render();toast('Tâche supprimée')}
@@ -884,7 +900,7 @@ menage(){
     <h2>${dayF<7?(dayF===ti?'Aujourd\'hui · ':'')+DAYS[dayF]:dayF===7?'🗓️ N\'importe quand cette semaine':'Toutes les tâches'}</h2>
     ${sorted.length?(dayF===8?[0,1,2,3,4,5,6,7].map(d=>{const l=sorted.filter(t=>t.day===d);return l.length?`<div class="cat">${d<7?(d===ti?'⭐ ':'')+DAYS[d]:'🗓️ N\'importe quand'} <span class="rep">${l.filter(isDone).length}/${l.length}</span></div>${l.map(t=>taskRow(t)).join('')}`:''}).join(''):sorted.map(t=>taskRow(t)).join('')):`<div class="empty"><b>🌷</b>Aucune tâche ici.<br>Appuie sur <b style="display:inline;font-size:inherit;color:var(--pri)">+</b> pour en ajouter une.</div>`}
   </div>
-  <p class="mut" style="text-align:center">Les tâches 🔁 repartent à zéro chaque lundi.<br>Appuie sur le nom d'une tâche pour la modifier, sur 🗑️ pour la supprimer.</p>`;
+  <p class="mut" style="text-align:center">Les tâches 🔁 repartent à zéro chaque lundi.<br>Touche le petit dessin d'une tâche pour dire « je m'en occupe » 🙋 (les autres le voient).<br>Appuie sur le nom d'une tâche pour la modifier, sur 🗑️ pour la supprimer.</p>`;
 },
 courses(){
   const left=st.shop.filter(i=>!i.done),got=st.shop.filter(i=>i.done);
@@ -1026,7 +1042,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-20.1';
+const APPV='2026-11-20.2';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
