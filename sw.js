@@ -25,20 +25,21 @@ self.addEventListener('fetch', e => {
     r || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))));
 });
 
-// Notifications (anniversaires) envoyées chaque matin par GitHub Actions (scripts/anniversaires.js).
+// Notifications envoyées par GitHub Actions (scripts/rappels.js) : agenda, poubelles, coups de pouce, petits mots.
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data && e.data.text() }; }
   e.waitUntil(self.registration.showNotification(d.title || 'Céline 🌸', {
     body: d.body || '', icon: './icons/icon-192.png', badge: './icons/icon-192.png',
-    tag: d.tag || 'celine', data: { url: './#agenda' }
+    tag: d.tag || 'celine', data: { url: d.url || './#agenda' }
   }));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const c of list) if ('focus' in c) { c.postMessage('agenda'); return c.focus(); }
-    return self.clients.openWindow('./#agenda');
+    const url = (e.notification.data && e.notification.data.url) || './#agenda';
+    for (const c of list) if ('focus' in c) { c.postMessage(url.includes('#agenda') ? 'agenda' : 'home'); return c.focus(); }
+    return self.clients.openWindow(url);
   }));
 });

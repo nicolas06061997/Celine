@@ -1,4 +1,4 @@
-name: Rappels (rendez-vous et anniversaires)
+name: Rappels (agenda, poubelles, messages)
 
 on:
   workflow_dispatch:

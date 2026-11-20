@@ -150,6 +150,20 @@ textarea{min-height:90px;resize:vertical}
 .shrow{border-radius:12px;padding:9px 12px;margin:0 0 6px;color:#4a3940;font-size:15px}
 .paint{position:sticky;top:6px;z-index:4;outline:2.5px solid var(--pri)}
 .ring text{font-weight:800;fill:var(--ink)}
+/* Outils en plus */
+body.hasfab main{padding-bottom:100px}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tools button{background:var(--pri3);border-radius:16px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:700}
+.tools button b{font-size:26px;line-height:1.1}
+.qt{display:inline-block;font-size:13px;font-weight:800;background:var(--pri2);color:var(--ink);border-radius:9px;padding:1px 7px;margin-left:6px}
+.hero .wx{margin-top:8px;font-weight:700;font-size:15px}.hero .wx span{opacity:.85;font-weight:600}
+.hero .mot{background:rgba(255,255,255,.3);font-size:15.5px}.hero .mot button{display:block;margin-top:8px;background:#fff;color:var(--pri);font-weight:800;border-radius:12px;padding:7px 14px}
+.cd{display:flex;gap:14px;align-items:center}.cdn{flex:none;min-width:64px;text-align:center;font-size:22px;font-weight:800;color:#fff;background:var(--pri);border-radius:16px;padding:10px 8px}
+.bin{background:linear-gradient(135deg,#d9f2b6,#c8f0d8);color:#2f4a35}.bin h2{color:#2f4a35}.bin .mut{color:#4f6b55}.binl{font-size:17px;font-weight:700}
+.pouce{background:linear-gradient(135deg,#fff3c4,#ffe0ec);color:#4a3940}.pouce h2{color:#4a3940}.pouce .msg{font-size:18px;font-weight:700;margin-bottom:10px}
+.ib{display:block;font-weight:600;white-space:pre-wrap;overflow-wrap:anywhere}.ib a,.tels a{color:var(--pri);font-weight:800}
+.tels{background:var(--pri3);border-radius:14px;padding:10px 12px;margin-top:14px;font-size:14.5px;line-height:1.8}
+canvas.cf{position:fixed;inset:0;pointer-events:none;z-index:25}
 </style>
 </head>
 <body>
@@ -212,7 +226,8 @@ function def(){
   let n0=0;const t=(e,n,d)=>({id:'d'+(++n0),e,t:n,day:d,rep:true,done:null,u:0});
   return {tasks:[t('🧺','Faire une lessive',0),t('🧹','Passer l\'aspirateur',2),t('🗑️','Sortir les poubelles',3),t('🛁','Nettoyer la salle de bain',4),t('🛏️','Changer les draps',5),t('🪴','Arroser les plantes',7)],
     shop:[],hist:{},meals:{},events:[],memo:'',memoU:0,mu:{},gone:{},name:'Céline',fam:'',
-    shifts:SHIFT0.map((x,i)=>({id:'s'+(i+1),e:x[0],n:x[1],h:x[2],c:x[3],u:0})),sched:{},profiles:[]};
+    shifts:SHIFT0.map((x,i)=>({id:'s'+(i+1),e:x[0],n:x[1],h:x[2],c:x[3],u:0})),sched:{},profiles:[],
+    dishes:[],lists:[],infos:[],bins:[],msgs:[],fav:{}};
 }
 let st=(()=>{try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.tasks)return Object.assign(def(),s)}catch(e){}return def()})();
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
@@ -230,6 +245,9 @@ function tidy(){
   st.events=st.events.filter(e=>{const k=e.yearly||e.date>=yest;if(!k)gone(e.id);return k});
   const old=Date.now()-60*864e5;for(const k in st.gone)if(st.gone[k]<old)delete st.gone[k];
   const so=schedMin();for(const k in st.sched)if(k<so)delete st.sched[k];
+  // Petits messages : un coup de pouce ne dure qu'une journée, un petit mot lu disparaît après 30 jours.
+  const d3=ymd(new Date(Date.now()-3*864e5)),m30=Date.now()-30*864e5;
+  st.msgs=(st.msgs||[]).filter(m=>{const k=m.k==='pouce'?m.d>=d3:!(m.seen&&m.seen<m30);if(!k)gone(m.id);return k});
   saveLocal();
 }
 const schedMin=()=>ymd(new Date(Date.now()-120*864e5));
@@ -243,10 +261,10 @@ function go(t){tab=t;render();window.scrollTo(0,0)}
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
   $('#main').innerHTML=V[tab]();
-  $('#fab').style.display=(tab==='menage'||tab==='agenda')?'flex':'none';
+  const f=tab==='menage'||tab==='agenda';$('#fab').style.display=f?'flex':'none';document.body.classList.toggle('hasfab',f);
 }
 function fab(){tab==='menage'?taskSheet():evSheet()}
-function sheet(h){$('#sh').innerHTML=h;$('#sh').classList.add('on');$('#ov').classList.add('on');$('#sh').scrollTop=0}
+function sheet(h,keep){const y=$('#sh').scrollTop;$('#sh').innerHTML=h;$('#sh').classList.add('on');$('#ov').classList.add('on');$('#sh').scrollTop=keep?y:0}
 function closeSheet(){$('#sh').classList.remove('on');$('#ov').classList.remove('on')}
 let tt;function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2200)}
 
@@ -261,7 +279,7 @@ function toggleTask(id){
   const t=st.tasks.find(x=>x.id===id);if(!t)return;
   t.done=isDone(t)?null:weekKey();t.u=Date.now();buzz();save();render();
   if(t.done){const list=st.tasks.filter(x=>x.day===t.day);
-    if(list.every(isDone))toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo '+(st.name||'Céline')+', tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉');}
+    if(list.every(isDone)){confetti();toast(t.day===7?'Toutes les tâches de la semaine sont faites ! 🎉':'Bravo '+(st.name||'Céline')+', tout est fait pour '+DAYS[t.day].toLowerCase()+' ! 🎉')}}
 }
 function taskSheet(id){
   const t=id?st.tasks.find(x=>x.id===id):{e:'🧹',t:'',day:dayF<8?dayF:todayI(),rep:true};
@@ -292,21 +310,43 @@ function catOf(name){const n=' '+name.toLowerCase().replace(/['’\-]/g,' ')+' '
   let best=CATS.length-1,len=0;
   CATS.forEach((c,i)=>c[2].split(' ').forEach(k=>{if(k&&n.includes(' '+k)&&k.length>len){best=i;len=k.length}}));
   return best}
+// Quantité écrite avec l'article : « lait x2 », « 3x yaourts », « œufs ×6 »
+function parseQ(v){v=(v||'').trim();let m=v.match(/^(\d{1,2})\s*(?:x\s|[×*])\s*(.+)$/i);if(m&&+m[1]>0)return {t:m[2].trim(),q:+m[1]};
+  m=v.match(/^(.+?)(?:\s+x|\s*[×*])\s*(\d{1,2})$/i);if(m&&+m[2]>0)return {t:m[1].trim(),q:+m[2]};return {t:v,q:0}}
+const qOf=i=>i.q>1?`<span class="qt">×${i.q}</span>`:'';
+// Ajoute un article. inc : s'il est déjà dans la liste, on en ajoute un de plus (lait → lait ×2).
+function shopAdd(raw,inc){
+  const {t,q}=parseQ(raw);if(!t)return null;const now=Date.now(),k=t.toLowerCase();
+  let ex=st.shop.find(i=>i.t.toLowerCase()===k);
+  if(ex){if(q)ex.q=q;else if(inc&&!ex.done)ex.q=(ex.q||1)+1;else if(ex.done)delete ex.q;ex.done=false;ex.u=now}
+  else{ex={id:uid(),t,c:catOf(t),done:false,u:now};if(q>1)ex.q=q;st.shop.push(ex)}
+  const f=st.fav[k];if(f&&f.h)st.fav[k]={p:f.p||0,h:0,u:now};   // racheté : il revient dans « Souvent acheté »
+  return ex;
+}
 function addItem(name){
-  name=(name||'').trim();if(!name)return;
-  const ex=st.shop.find(i=>i.t.toLowerCase()===name.toLowerCase());
-  if(ex){ex.done=false;ex.u=Date.now()}else st.shop.push({id:uid(),t:name,c:catOf(name),done:false,u:Date.now()});
-  const k=name.toLowerCase();st.hist[k]=(st.hist[k]||0)+1;
+  const it=shopAdd(name,1);if(!it)return;
+  const k=it.t.toLowerCase();st.hist[k]=(st.hist[k]||0)+1;
+  if(it.q>1)toast(it.t+' ×'+it.q);
   buzz();save();render();
   const i=$('#ni');if(i){i.focus()}
 }
+// « Souvent acheté » : épingler 📌 ou retirer ✕ (st.fav[nom]={p,h,u}, partagé)
+function favList(all){const inList=new Set(st.shop.filter(i=>!i.done).map(i=>i.t.toLowerCase())),F=st.fav||{};
+  const pins=Object.keys(F).filter(k=>F[k].p&&!F[k].h);
+  const top=Object.entries(st.hist).filter(([k])=>!(F[k]&&(F[k].h||F[k].p))).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const l=[...pins.sort(),...top.slice(0,all?40:Math.max(0,14-pins.length))];return all?l:l.filter(k=>!inList.has(k))}
+function favSet(k,o){st.fav[k]={p:0,h:0,...(st.fav[k]||{}),...o,u:Date.now()};save();favSheet(1);render()}
+function favSheet(keep){const l=favList(1),F=st.fav||{};
+  sheet(`<h3>⭐ Souvent acheté</h3><p class="mut">📌 = toujours en premier. ✕ = ne plus le proposer (il revient si tu le rachètes).</p>
+  ${l.length?l.map(k=>`<div class="item"><span class="t">${F[k]&&F[k].p?'📌 ':''}${esc(k)}</span><button class="x" onclick="favSet(this.dataset.k,{p:${F[k]&&F[k].p?0:1}})" data-k="${esc(k)}" aria-label="Épingler" style="${F[k]&&F[k].p?'':'filter:grayscale(1);opacity:.5'}">📌</button><button class="x" onclick="favSet(this.dataset.k,{h:1,p:0})" data-k="${esc(k)}" aria-label="Retirer">✕</button></div>`).join(''):'<div class="mut">Rien pour l\'instant.</div>'}
+  <div class="row" style="margin-top:14px"><button class="btn" onclick="closeSheet()">Terminé ✓</button></div>`,keep)}
 function toggleItem(id){const i=st.shop.find(x=>x.id===id);i.done=!i.done;i.u=Date.now();buzz();save();render()}
 function delItem(id){gone(id);st.shop=st.shop.filter(x=>x.id!==id);save();render()}
 function clearTaken(){st.shop=st.shop.filter(x=>{if(x.done)gone(x.id);return !x.done});save();render();toast('Articles pris retirés 🧺')}
 function shareList(){
   const left=st.shop.filter(i=>!i.done);if(!left.length){toast('La liste est vide');return}
   let txt='🛒 Liste de courses\n';
-  CATS.forEach((c,ci)=>{const l=left.filter(i=>i.c===ci);if(l.length)txt+='\n'+c[1]+' '+c[0]+'\n'+l.map(i=>'• '+i.t).join('\n')+'\n'});
+  CATS.forEach((c,ci)=>{const l=left.filter(i=>i.c===ci);if(l.length)txt+='\n'+c[1]+' '+c[0]+'\n'+l.map(i=>'• '+i.t+(i.q>1?' ×'+i.q:'')).join('\n')+'\n'});
   if(navigator.share)navigator.share({text:txt}).catch(()=>{});
   else navigator.clipboard.writeText(txt).then(()=>toast('Liste copiée 📋'),()=>toast('Impossible de copier'));
 }
@@ -318,15 +358,44 @@ function setCat(id,i){Object.assign(st.shop.find(x=>x.id===id),{c:i,u:Date.now()
 
 // ---------- Repas ----------
 function setMeal(d,k,v){(st.meals[d]=st.meals[d]||{})[k]=v;st.mu[d+k]=Date.now();save()}
-function dice(d,k){const v=MEALS[Math.floor(Math.random()*MEALS.length)];setMeal(d,k,v);const i=document.getElementById('m'+d+k);if(i)i.value=v;buzz()}
+// Nos plats (st.dishes, partagé) : chaque plat écrit à la main y est rangé, avec ses ingrédients (ing).
+const dishOf=n=>{n=(n||'').trim().toLowerCase();return n&&(st.dishes||[]).find(d=>d.t.trim().toLowerCase()===n)};
+function addDish(v){v=(v||'').trim();if(v.length<3||dishOf(v))return;st.dishes.push({id:uid(),t:v,ing:'',u:Date.now()});save()}
+function dicePool(){const own=(st.dishes||[]).map(d=>d.t);if(st.diceOwn)return own;const s=new Set(MEALS.map(x=>x.toLowerCase()));return [...MEALS,...own.filter(x=>!s.has(x.toLowerCase()))]}
+function dice(d,k){const P=dicePool(),cur=((st.meals[d]||{})[k]||'').toLowerCase();
+  if(!P.length){toast('Pas encore de plats à vous : écris-en un dans un repas ✍️');return}
+  const Q=P.length>1?P.filter(x=>x.toLowerCase()!==cur):P,v=Q[Math.floor(Math.random()*Q.length)];
+  setMeal(d,k,v);const i=document.getElementById('m'+d+k);if(i)i.value=v;buzz()}
+function setDiceOwn(b){st.diceOwn=b?1:0;saveLocal();render()}
+function dishesSheet(){const L=[...(st.dishes||[])].sort((a,b)=>a.t.localeCompare(b.t,'fr'));
+  sheet(`<h3>📖 Nos plats</h3><p class="mut">Chaque plat que vous écrivez dans les repas arrive ici. Ajoute ses ingrédients : ils iront dans les courses en un seul geste.</p>
+  ${L.length?L.map(d=>`<div class="item" onclick="dishEdit('${d.id}')"><span class="t"><b>${esc(d.t)}</b><br><span class="mut">${d.ing?esc(d.ing):'Pas encore d\'ingrédients'}</span></span><span class="x">✏️</span></div>`).join(''):'<div class="empty"><b>🍲</b>Aucun plat pour l\'instant.</div>'}
+  <div class="row" style="margin-top:12px"><button class="btn" onclick="dishEdit()">+ Ajouter un plat</button></div>`)}
+function dishEdit(id){const d=id?st.dishes.find(x=>x.id===id):{t:'',ing:''};ed={id:id||''};
+  sheet(`<h3>${id?'Modifier le plat':'Nouveau plat'}</h3><div class="lbl">Nom du plat</div><input id="dn" value="${esc(d.t)}" placeholder="Ex : Lasagnes de maman">
+  <div class="lbl">Ingrédients à acheter</div><textarea id="di" placeholder="Ex : pâtes à lasagne, haché, coulis de tomate, mozzarella">${esc(d.ing)}</textarea>
+  <p class="mut">Sépare-les par des virgules.</p>
+  <div class="row"><button class="btn" onclick="dishSave()">Enregistrer</button>${id?'<button class="btn del" onclick="dishDel()">Supprimer</button>':''}</div>
+  <div style="text-align:center;margin-top:10px"><span class="link" onclick="dishesSheet()">‹ Nos plats</span></div>`)}
+function dishSave(){const t=$('#dn').value.trim();if(!t){$('#dn').focus();return}const ing=$('#di').value.trim(),o=dishOf(t);
+  if(ed.id){Object.assign(st.dishes.find(x=>x.id===ed.id),{t,ing,u:Date.now()})}
+  else if(o)Object.assign(o,{ing,u:Date.now()});else st.dishes.push({id:uid(),t,ing,u:Date.now()});
+  save();dishesSheet();render()}
+function dishDel(){gone(ed.id);st.dishes=st.dishes.filter(x=>x.id!==ed.id);save();dishesSheet();render()}
+// Repas de la semaine → courses : les ingrédients enregistrés sont déjà remplis ; ceux qu'on écrit sont retenus.
 function mealsToShop(){
-  const all=[];for(let d=0;d<7;d++){const m=st.meals[d]||{};['m','s'].forEach(k=>m[k]&&all.push(m[k]))}
-  if(!all.length){toast('Aucun repas prévu');return}
-  sheet(`<h3>Ajouter aux courses</h3><p class="mut">Tape les ingrédients à acheter pour tes repas, séparés par des virgules.</p>
-  <p class="mut">${all.map(esc).join(' · ')}</p><textarea id="ing" placeholder="Ex : pâtes, haché, tomates, parmesan"></textarea>
+  const names=[];for(let d=0;d<7;d++){const m=st.meals[d]||{};['m','s'].forEach(k=>{const v=(m[k]||'').trim();if(v&&!names.some(x=>x.toLowerCase()===v.toLowerCase()))names.push(v)})}
+  if(!names.length){toast('Aucun repas prévu');return}
+  sheet(`<h3>🛒 Ingrédients → courses</h3><p class="mut">Les ingrédients déjà connus sont remplis. Complète les autres (séparés par des virgules) : Céline s'en souviendra la prochaine fois.</p>
+  ${names.map(n=>{const d=dishOf(n);return `<div class="pday"><label class="row" style="font-weight:700"><input type="checkbox" class="ingk" checked style="width:22px;height:22px;flex:none;accent-color:var(--pri)"> ${esc(n)}</label><textarea class="ingd" data-n="${esc(n)}" placeholder="Ex : pâtes, haché, tomates" style="min-height:52px;margin-top:6px">${esc(d?d.ing:'')}</textarea></div>`}).join('')}
   <div class="row" style="margin-top:12px"><button class="btn" onclick="addIng()">Ajouter à la liste</button></div>`);
 }
-function addIng(){const v=$('#ing').value.split(/[,\n]/).map(s=>s.trim()).filter(Boolean);v.forEach(n=>{const ex=st.shop.find(i=>i.t.toLowerCase()===n.toLowerCase());if(ex){ex.done=false;ex.u=Date.now()}else st.shop.push({id:uid(),t:n,c:catOf(n),done:false,u:Date.now()})});save();closeSheet();toast(v.length+' article(s) ajouté(s) 🛒');render()}
+function addIng(){const all=[],now=Date.now();
+  document.querySelectorAll('.ingd').forEach((t,i)=>{const n=t.dataset.n,v=t.value.trim();if(!v)return;let d=dishOf(n);
+    if(!d){d={id:uid(),t:n,ing:'',u:0};st.dishes.push(d)}if(d.ing!==v){d.ing=v;d.u=now}
+    if(document.querySelectorAll('.ingk')[i].checked)all.push(...v.split(/[,\n]/).map(x=>x.trim()).filter(Boolean))});
+  const seen=new Set(),v=all.filter(x=>{const k=x.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+  v.forEach(n=>shopAdd(n));save();closeSheet();toast(v.length?v.length+' article(s) ajouté(s) 🛒':'Rien à ajouter');render()}
 function clearMeals(){if(confirm('Vider tous les repas de la semaine ?')){emptyMeals();save();render()}}
 function autoMeals(b){st.mealsAuto=b.checked;save()}
 
@@ -346,7 +415,7 @@ function evRow(x){const ty=TYPES.find(t=>t[0]===x.e.type)||TYPES[4];
   <div style="flex:1;min-width:0"><div style="font-weight:700;overflow-wrap:anywhere">${ty[1]} ${esc(x.e.t)}${x.age?' <span class="mut">('+x.age+(x.age>1?' ans':' an')+')</span>':''}</div>
   <div class="mut">${x.e.time?'🕐 '+esc(x.e.time)+' · ':''}<span class="tag ${x.n<=1?'now':''}">${when(x.n)}</span></div></div></div>`}
 function evSheet(id){
-  const e=id?st.events.find(x=>x.id===id):{t:'',date:(tab==='agenda'&&calSel)||ymd(new Date()),time:'',type:'rdv',yearly:false};
+  const e=id?st.events.find(x=>x.id===id):{t:'',date:(tab==='agenda'&&calSel)||ymd(new Date()),time:'',type:'rdv',yearly:false,cd:false};
   ed={id:id||'',type:e.type};
   sheet(`<h3>${id?'Modifier':'Nouvel événement'}</h3>
   <div class="chips wrap">${TYPES.map(t=>`<button class="chip tch ${t[0]===e.type?'on':''}" onclick="setType('${t[0]}',this)">${t[1]} ${t[2]}</button>`).join('')}</div>
@@ -354,12 +423,13 @@ function evSheet(id){
   <div class="lbl">Quand ?</div><div class="row"><input type="date" id="ed" value="${e.date}"><input type="time" id="eh" value="${esc(e.time)}" style="max-width:130px"></div>
   <label class="tog"><input type="checkbox" id="ey" ${e.yearly?'checked':''}> 🔁 Revient chaque année</label>
   <label class="tog"><input type="checkbox" id="er" ${e.rem===false?'':'checked'}> 🔔 Me le rappeler <span class="mut">(la veille à 19h et 1 h avant)</span></label>
+  <label class="tog"><input type="checkbox" id="ec" ${e.cd?'checked':''}> ⏳ Compte à rebours sur l'accueil <span class="mut">(ex. J-12 avant les vacances)</span></label>
   <div class="row"><button class="btn" onclick="saveEv()">Enregistrer</button>${id?`<button class="btn del" onclick="delEv()">Supprimer</button>`:''}</div>`);
 }
 function setType(t,b){ed.type=t;document.querySelectorAll('.tch').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(t==='anniv')$('#ey').checked=true}
 function saveEv(){
   const t=$('#et').value.trim(),d=$('#ed').value;if(!t){$('#et').focus();return}if(!d){$('#ed').focus();return}
-  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,rem:$('#er').checked,u:Date.now()};
+  const o={t,date:d,time:$('#eh').value,type:ed.type,yearly:$('#ey').checked,rem:$('#er').checked,cd:$('#ec').checked,u:Date.now()};
   if(ed.id)Object.assign(st.events.find(x=>x.id===ed.id),o);else st.events.push({id:uid(),...o});
   save();closeSheet();render();
 }
@@ -605,6 +675,169 @@ function photoBlock(){
 }
 function themeBlock(){return `<div class="lbl">🎨 Couleurs (sur ce téléphone)</div><div class="row"><button class="btn soft" onclick="colorSheet()">🎨 Choisir mes couleurs</button></div>`}
 
+// ---------- Mes outils (accueil) : poubelles, listes, infos utiles, petit mot, coup de pouce, météo ----------
+// Partagés comme le reste (u + gone) : st.bins, st.lists, st.infos, st.msgs. Météo : propre à chaque téléphone.
+const profName=id=>((st.profiles||[]).find(p=>p.id===id)||{}).name||'';
+const others=()=>(st.profiles||[]).filter(p=>p.id!==st.me);
+function needMe(){if(st.me)return true;whoSheet();toast('Dis d\'abord qui tu es 👋');return false}
+const dayTxt=d=>{const n=Math.round((day0(d)-day0(new Date()))/864e5);return n===0?'aujourd\'hui':n===1?'demain':d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})};
+function toolsCard(){
+  const T=[['🗑️','Poubelles','binsSheet()'],['✅','Listes','listsSheet()'],['📇','Infos utiles','infosSheet()'],['💌','Petit mot','motSheet()'],['🤝','Coup de pouce','pouceSheet()'],['🌤️','Météo','wxSheet()']];
+  return `<div class="card"><h2>🧰 Mes outils</h2><div class="tools">${T.map(t=>`<button onclick="${t[2]}"><b>${t[0]}</b>${t[1]}</button>`).join('')}</div></div>`}
+
+// Confettis (tout le ménage du jour fait, ou un anniversaire aujourd'hui)
+function confetti(){
+  try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch(e){}
+  const c=document.createElement('canvas'),r=devicePixelRatio||1,W=innerWidth,H=innerHeight;c.className='cf';c.width=W*r;c.height=H*r;c.style.width=W+'px';c.style.height=H+'px';
+  document.body.appendChild(c);const g=c.getContext('2d');g.scale(r,r);
+  const C=['#f7a9c4','#e8779c','#ffd166','#8ad7c1','#9d7bf0','#7cc4ff','#ff9f6b'];
+  const P=Array.from({length:110},()=>({x:W/2+(Math.random()-.5)*W*.3,y:H*.35,vx:(Math.random()-.5)*11,vy:-Math.random()*11-4,s:5+Math.random()*6,a:Math.random()*6,va:(Math.random()-.5)*.3,c:C[Math.floor(Math.random()*C.length)]}));
+  const t0=performance.now();
+  (function f(t){const k=(t-t0)/2400;g.clearRect(0,0,W,H);
+    P.forEach(p=>{p.vy+=.28;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;g.save();g.globalAlpha=Math.max(0,1-k*k);g.translate(p.x,p.y);g.rotate(p.a);g.fillStyle=p.c;g.fillRect(-p.s/2,-p.s/3,p.s,p.s*.66);g.restore()});
+    if(k<1)requestAnimationFrame(f);else c.remove()})(t0);
+}
+
+// ---------- Compte à rebours (événement avec cd:true) ----------
+function cdCard(){const L=upcoming().filter(x=>x.e.cd&&x.n>=1).slice(0,2);if(!L.length)return '';
+  return L.map(x=>{const ty=TYPES.find(t=>t[0]===x.e.type)||TYPES[4];return `<div class="card cd" onclick="evSheet('${x.e.id}')"><span class="cdn">${x.n===1?'Demain':'J-'+x.n}</span><div style="flex:1;min-width:0"><div class="mut">${x.n===1?'C\'est demain :':'Plus que '+x.n+' jours avant'}</div><b style="font-size:17px;overflow-wrap:anywhere">${ty[1]} ${esc(x.e.t)}</b></div></div>`}).join('')}
+
+// ---------- Poubelles : st.bins = {id,e,n,date (une collecte),w (toutes les w semaines),rem,u} ----------
+const BINP=[['🔵','PMC'],['📦','Papiers-cartons'],['⚫','Déchets résiduels'],['🟢','Déchets organiques'],['🌿','Déchets de jardin'],['🍾','Verre']];
+function binNext(b){const t=day0(new Date()),[y,m,d]=b.date.split('-').map(Number),r=new Date(y,m-1,d),s=(b.w||1)*7,n=Math.round((t-r)/864e5);
+  if(n<=0)return r;const x=new Date(r);x.setDate(r.getDate()+Math.ceil(n/s)*s);return x}
+const binW=w=>w===1?'Chaque semaine':w===4?'Toutes les 4 semaines':'Toutes les 2 semaines';
+function binCard(){if(!(st.bins||[]).length)return '';
+  const t=new Date(),tk=ymd(t),tm=ymd(new Date(t.getFullYear(),t.getMonth(),t.getDate()+1)),L=a=>a.map(b=>esc(b.e)+' '+esc(b.n)).join('<br>');
+  const to=st.bins.filter(b=>ymd(binNext(b))===tm),td=t.getHours()<12?st.bins.filter(b=>ymd(binNext(b))===tk):[];
+  if(!to.length&&!td.length)return '';
+  return `<div class="card bin" onclick="binsSheet()">${to.length?`<h2>🗑️ Ce soir, sortir les poubelles</h2><div class="binl">${L(to)}</div><div class="mut">Collecte demain matin</div>`:''}
+    ${td.length?`<h2 ${to.length?'style="margin-top:12px"':''}>🗑️ Collecte aujourd'hui</h2><div class="binl">${L(td)}</div>`:''}</div>`}
+function binsSheet(){const L=(st.bins||[]).map(b=>({b,d:binNext(b)})).sort((x,y)=>x.d-y.d);
+  sheet(`<h3>🗑️ Poubelles</h3><p class="mut">La veille, un rappel s'affiche sur l'accueil, et une notification arrive le soir si les rappels sont activés. Regarde le calendrier des collectes de ta commune pour les dates.</p>
+  ${L.length?L.map(({b,d})=>`<div class="item" onclick="binEdit('${b.id}')"><span class="e">${esc(b.e)}</span><span class="t"><b>${esc(b.n)}</b><br><span class="mut">${binW(b.w||1)} · prochaine : ${dayTxt(d)}</span></span><span class="x">✏️</span></div>`).join(''):'<div class="empty"><b>🗑️</b>Aucune collecte pour l\'instant.</div>'}
+  <div class="row" style="margin-top:12px"><button class="btn" onclick="binEdit()">+ Ajouter une collecte</button></div>`)}
+function binEdit(id){const b=id?st.bins.find(x=>x.id===id):{e:'🔵',n:'PMC',date:ymd(new Date()),w:2,rem:true};
+  ed={id:id||'',e:b.e,w:b.w||1};
+  sheet(`<h3>${id?'Modifier la collecte':'Nouvelle collecte'}</h3>
+  ${id?'':`<div class="chips wrap">${BINP.map((p,i)=>`<button class="chip" onclick="binPick(${i})">${p[0]} ${p[1]}</button>`).join('')}</div>`}
+  <div class="lbl">Quoi ?</div><div class="row"><button class="chip" id="be" style="font-size:22px;padding:8px 12px" onclick="binEmo()" aria-label="Changer l'image">${esc(b.e)}</button><input id="bn" value="${esc(b.n)}" placeholder="Ex : PMC"></div>
+  <div class="lbl">Date de la prochaine collecte</div><input type="date" id="bd" value="${id?ymd(binNext(b)):b.date}">
+  <div class="lbl">Revient</div><div class="chips wrap">${[1,2,4].map(w=>`<button class="chip bw ${ed.w===w?'on':''}" onclick="ed.w=${w};document.querySelectorAll('.bw').forEach(x=>x.classList.remove('on'));this.classList.add('on')">${binW(w)}</button>`).join('')}</div>
+  <label class="tog"><input type="checkbox" id="br" ${b.rem===false?'':'checked'}> 🔔 Notification la veille au soir</label>
+  <div class="row"><button class="btn" onclick="binSave()">Enregistrer</button>${id?'<button class="btn del" onclick="binDel()">Supprimer</button>':''}</div>
+  <div style="text-align:center;margin-top:10px"><span class="link" onclick="binsSheet()">‹ Poubelles</span></div>`)}
+function binPick(i){ed.e=BINP[i][0];$('#be').textContent=ed.e;$('#bn').value=BINP[i][1]}
+function binEmo(){const L=[...BINP.map(p=>p[0]),'🗑️','♻️','👕','🔋'];ed.e=L[(L.indexOf(ed.e)+1)%L.length];$('#be').textContent=ed.e}
+function binSave(){const n=$('#bn').value.trim(),d=$('#bd').value;if(!n){$('#bn').focus();return}if(!d){$('#bd').focus();return}
+  const o={e:ed.e,n,date:d,w:ed.w,rem:$('#br').checked,u:Date.now()};
+  if(ed.id)Object.assign(st.bins.find(x=>x.id===ed.id),o);else st.bins.push({id:uid(),...o});
+  save();binsSheet();render();toast('Collecte enregistrée 🗑️')}
+function binDel(){gone(ed.id);st.bins=st.bins.filter(x=>x.id!==ed.id);save();binsSheet();render()}
+
+// ---------- Listes à cocher réutilisables : st.lists = {id,e,t,items:[{id,t,ok,o}],u} ----------
+const LTPL=[['🧳','Valise week-end',['Pyjama','Sous-vêtements','Vêtements de rechange','Trousse de toilette','Brosse à dents','Médicaments','Chargeur de téléphone']],
+  ['🎒','Sac de sortie',['Clés','Portefeuille','Mouchoirs','Gourde','Collation','Lingettes','Veste de pluie']],
+  ['🏊','Piscine',['Maillot','Serviette','Bonnet','Lunettes de natation','Gel douche','Peigne','Collation']],
+  ['🏖️','Avant de partir en vacances',['Cartes d\'identité','Chargeurs','Médicaments','Crème solaire','Vider le frigo','Sortir les poubelles','Arroser les plantes','Fermer les fenêtres']],
+  ['📝','Liste vide',[]]];
+function listsSheet(){const L=st.lists||[];
+  sheet(`<h3>✅ Mes listes</h3><p class="mut">Des listes à cocher que l'on réutilise (valise, sac…). Partagées avec la famille.</p>
+  ${L.map(l=>{const it=l.items||[],dn=it.filter(i=>i.ok).length;return `<div class="item" onclick="listOpen('${l.id}')"><span class="e">${esc(l.e)}</span><span class="t"><b>${esc(l.t)}</b></span><span class="rep">${dn}/${it.length}</span></div>`}).join('')}
+  <div class="lbl">Nouvelle liste</div><div class="chips wrap">${LTPL.map((x,i)=>`<button class="chip" onclick="listNew(${i})">${x[0]} ${esc(x[1])}</button>`).join('')}</div>`)}
+function listNew(i){const [e,t,items]=LTPL[i],now=Date.now(),l={id:uid(),e,t,items:items.map((x,k)=>({id:uid()+k,t:x,ok:false,o:k})),u:now};
+  st.lists.push(l);save();listOpen(l.id);if(!items.length)setTimeout(()=>{const n=$('#li');n&&n.focus()},250)}
+const curList=()=>st.lists.find(x=>x.id===ed.lid);
+function listOpen(id,keep){const l=st.lists.find(x=>x.id===id);if(!l){listsSheet();return}ed={lid:id};const it=l.items||[],dn=it.filter(i=>i.ok).length;
+  sheet(`<h3>${esc(l.e)} ${esc(l.t)} <small class="mut">${dn}/${it.length}</small></h3>
+  ${it.map(i=>`<div class="item ${i.ok?'done':''}"><button class="ck" onclick="listTog('${i.id}')" aria-label="Fait">✓</button><span class="t" onclick="listTog('${i.id}')">${esc(i.t)}</span><button class="x" onclick="listDelIt('${i.id}')" aria-label="Retirer">✕</button></div>`).join('')}
+  <div class="addrow" style="margin-top:10px"><input id="li" placeholder="Ajouter une ligne…" enterkeyhint="done" onkeydown="if(event.key==='Enter')listAdd()"><button onclick="listAdd()">+</button></div>
+  <div class="row" style="margin-top:14px"><button class="btn soft" onclick="listReset()">🔄 Tout décocher</button><button class="btn" onclick="listsSheet()">‹ Mes listes</button></div>
+  <div class="row" style="margin-top:12px;justify-content:space-between"><span class="link" onclick="listRename()">✏️ Renommer</span><span class="link" style="color:#d9534f" onclick="listDel()">🗑️ Supprimer la liste</span></div>`,keep)}
+function listTouch(l){l.u=Date.now();save();listOpen(l.id,1)}
+function listTog(id){const l=curList(),i=l&&l.items.find(x=>x.id===id);if(!i)return;i.ok=!i.ok;buzz();listTouch(l);if(l.items.length&&l.items.every(x=>x.ok))toast('Tout est prêt ! ✅')}
+function listAdd(){const l=curList(),v=($('#li').value||'').trim();if(!l||!v)return;l.items.push({id:uid(),t:v,ok:false,o:Date.now()});listTouch(l);const n=$('#li');if(n)n.focus()}
+function listDelIt(id){const l=curList();if(!l)return;l.items=l.items.filter(x=>x.id!==id);listTouch(l)}
+function listReset(){const l=curList();if(!l)return;l.items.forEach(x=>x.ok=false);listTouch(l);toast('Liste remise à zéro 🔄')}
+function listRename(){const l=curList();if(!l)return;const n=prompt('Nouveau nom de la liste :',l.t);if(n&&n.trim()){l.t=n.trim();listTouch(l)}}
+function listDel(){const l=curList();if(!l||!confirm('Supprimer la liste « '+l.t+' » ?'))return;gone(l.id);st.lists=st.lists.filter(x=>x.id!==l.id);save();listsSheet()}
+
+// ---------- Infos utiles : st.infos = {id,e,t,v,u} (dispo aussi sans connexion) ----------
+const INFP=[['🩺','Médecin'],['💊','Pharmacie'],['🦷','Dentiste'],['🏥','Mutuelle'],['👟','Pointures'],['👕','Tailles de vêtements'],['📶','Code Wi-Fi'],['🚗','Garage']];
+// Numéros de téléphone cliquables
+const telify=v=>esc(v).replace(/\+?\d[\d .\/-]{5,}\d/g,m=>{const d=m.replace(/[^\d+]/g,'');return d.replace('+','').length>=8?`<a href="tel:${d}">${m}</a>`:m});
+function infosSheet(){const L=st.infos||[];
+  sheet(`<h3>📇 Infos utiles</h3><p class="mut">Les infos importantes de la famille, toujours sous la main (même sans internet). Partagées avec la famille.</p>
+  ${L.map(x=>`<div class="item"><span class="e">${esc(x.e)}</span><span class="t"><b>${esc(x.t)}</b><span class="ib">${telify(x.v)}</span></span><button class="x" onclick="infoEdit('${x.id}')" aria-label="Modifier">✏️</button></div>`).join('')}
+  <div class="lbl">Ajouter</div><div class="chips wrap">${INFP.map((p,i)=>`<button class="chip" onclick="infoEdit('',${i})">${p[0]} ${p[1]}</button>`).join('')}<button class="chip" onclick="infoEdit('',-1)">➕ Autre</button></div>
+  <div class="tels">🚑 Urgences : <a href="tel:112">112</a><br>🩺 Médecin de garde : <a href="tel:1733">1733</a><br>💊 Pharmacie de garde : <a href="https://www.pharmacie.be" target="_blank" rel="noopener">pharmacie.be</a></div>`)}
+function infoEdit(id,pi){const x=id?st.infos.find(i=>i.id===id):{e:pi>=0?INFP[pi][0]:'📌',t:pi>=0?INFP[pi][1]:'',v:''};ed={id:id||'',e:x.e};
+  sheet(`<h3>${esc(x.e)} ${id?'Modifier':'Nouvelle info'}</h3><div class="lbl">Titre</div><input id="it" value="${esc(x.t)}" placeholder="Ex : Médecin">
+  <div class="lbl">Info</div><textarea id="iv" placeholder="Ex : Dr Dupont, 04 123 45 67, rue de la Gare 12">${esc(x.v)}</textarea>
+  <div class="row" style="margin-top:12px"><button class="btn" onclick="infoSave()">Enregistrer</button>${id?'<button class="btn del" onclick="infoDel()">Supprimer</button>':''}</div>
+  <div style="text-align:center;margin-top:10px"><span class="link" onclick="infosSheet()">‹ Infos utiles</span></div>`);if(!id)setTimeout(()=>{const v=$('#iv');v&&v.focus()},250)}
+function infoSave(){const t=$('#it').value.trim(),v=$('#iv').value.trim();if(!t){$('#it').focus();return}
+  if(ed.id)Object.assign(st.infos.find(i=>i.id===ed.id),{t,v,u:Date.now()});else st.infos.push({id:uid(),e:ed.e,t,v,u:Date.now()});save();infosSheet()}
+function infoDel(){gone(ed.id);st.infos=st.infos.filter(i=>i.id!==ed.id);save();infosSheet()}
+
+// ---------- Petit mot secret et coup de pouce : st.msgs = {id,k:'mot'|'pouce',from,to,t,e,d,seen,u} ----------
+// Petit mot : remplace la phrase du jour sur l'accueil de la personne choisie, jusqu'à ce qu'elle touche « Merci ».
+// Coup de pouce : bandeau en haut de l'accueil des autres, seulement le jour même.
+function motHTML(){const m=(st.msgs||[]).filter(x=>x.k==='mot'&&st.me&&x.to===st.me&&!x.seen).sort((a,b)=>b.u-a.u)[0];if(!m)return '';
+  return `<div class="quote mot">💌 <b>Un petit mot de ${esc(profName(m.from)||'quelqu\'un qui t\'aime')}</b><br>${esc(m.t)}<button onclick="msgSeen('${m.id}')">❤️ Merci</button></div>`}
+function msgSeen(id){const m=st.msgs.find(x=>x.id===id);if(!m)return;Object.assign(m,{seen:Date.now(),seenBy:st.me||'',u:Date.now()});buzz();save();render()}
+function motSheet(to){if(!needMe())return;const os=others();
+  if(!os.length){sheet(`<h3>💌 Petit mot secret</h3><p>Pour envoyer un petit mot, l'autre téléphone doit d'abord ouvrir Céline et choisir son prénom (« Qui utilise ce téléphone ? »).</p><div class="row"><button class="btn" onclick="closeSheet()">D'accord</button></div>`);return}
+  to=os.some(p=>p.id===to)?to:os[0].id;ed={to};const cur=st.msgs.find(m=>m.id==='mot-'+st.me+'-'+to),nm=esc(profName(to));
+  sheet(`<h3>💌 Petit mot secret</h3><p class="mut">Il remplace la phrase du jour sur l'accueil de <b>${nm}</b>, jusqu'à ce qu'il (ou elle) le lise.</p>
+  ${os.length>1?`<div class="chips wrap">${os.map(p=>`<button class="chip ${p.id===to?'on':''}" onclick="motSheet('${p.id}')">Pour ${esc(p.name)}</button>`).join('')}</div>`:''}
+  <textarea id="mt" maxlength="240" placeholder="Ex : Bonne journée, je pense à toi 💗"></textarea>
+  ${cur?`<p class="mut">Dernier mot : « ${esc(cur.t)} » · ${cur.seen?'lu ❤️':'pas encore lu'}</p>`:''}
+  <div class="row" style="margin-top:12px"><button class="btn" onclick="motSend()">💌 Envoyer à ${nm}</button></div>`);setTimeout(()=>{const t=$('#mt');t&&t.focus()},250)}
+function motSend(){const t=$('#mt').value.trim();if(!t){$('#mt').focus();return}const id='mot-'+st.me+'-'+ed.to;
+  st.msgs=st.msgs.filter(m=>m.id!==id);st.msgs.push({id,k:'mot',from:st.me,to:ed.to,t,seen:0,u:Date.now()});save();closeSheet();toast('Petit mot envoyé 💌')}
+const POUCE=[['😮‍💨','Journée chargée, besoin d\'un relais ce soir'],['🍝','Je m\'occupe du souper ce soir'],['🛒','Je passe faire les courses'],['⏰','Je rentre plus tard'],['🛋️','J\'ai besoin d\'une petite pause'],['🤗','J\'ai besoin d\'un câlin']];
+function pouceCards(){const td=ymd(new Date());
+  return (st.msgs||[]).filter(m=>m.k==='pouce'&&m.d===td&&m.from!==st.me&&!m.seen).map(m=>`<div class="card pouce"><h2>🤝 ${esc(profName(m.from)||'Coup de pouce')}</h2><div class="msg">${esc(m.e)} ${esc(m.t)}</div><button class="btn soft" style="width:100%" onclick="msgSeen('${m.id}')">👍 Bien reçu</button></div>`).join('')}
+function pouceSheet(){if(!needMe())return;const mine=st.msgs.find(m=>m.id==='pouce-'+st.me&&m.d===ymd(new Date()));
+  sheet(`<h3>🤝 Coup de pouce</h3><p class="mut">Un petit message qui s'affiche aujourd'hui en haut de l'accueil des autres${st.notif?', avec une notification':''}.</p>
+  ${mine?`<div class="pday">Envoyé aujourd'hui : <b>${esc(mine.e)} ${esc(mine.t)}</b><br><span class="mut">${mine.seen?'👍 Vu'+(profName(mine.seenBy)?' par '+esc(profName(mine.seenBy)):''):'Pas encore vu'}</span> · <span class="link" onclick="pouceOff()">Retirer</span></div>`:''}
+  ${POUCE.map((p,i)=>`<div class="item" onclick="pouceSend(${i})"><span class="e">${p[0]}</span><span class="t">${esc(p[1])}</span><span class="rep">Envoyer ›</span></div>`).join('')}
+  <div class="lbl">Ou écris le tien</div><div class="addrow"><input id="pc" placeholder="Ex : Je récupère le colis" enterkeyhint="send" onkeydown="if(event.key==='Enter')pouceSend(-1)"><button onclick="pouceSend(-1)" aria-label="Envoyer">➤</button></div>`)}
+function pouceSend(i){const p=i<0?['🤝',($('#pc').value||'').trim()]:POUCE[i];if(!p[1]){$('#pc').focus();return}const id='pouce-'+st.me;
+  st.msgs=st.msgs.filter(m=>m.id!==id);st.msgs.push({id,k:'pouce',from:st.me,to:'*',e:p[0],t:p[1],d:ymd(new Date()),seen:0,u:Date.now()});buzz();save();closeSheet();render();toast('Coup de pouce envoyé 🤝')}
+function pouceOff(){const id='pouce-'+st.me;gone(id);st.msgs=st.msgs.filter(m=>m.id!==id);save();closeSheet();render()}
+
+// ---------- Météo (Open-Meteo, gratuit et sans clé) : st.wxLoc={lat,lon,n} et dernière prévision dans celine-wx, propres au téléphone ----------
+let wx=null;try{wx=JSON.parse(localStorage.getItem('celine-wx'))}catch(e){}
+const wxEmo=c=>c===0?'☀️':c<=2?'🌤️':c===3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'🌨️':c<=82?'🌦️':c<=86?'🌨️':'⛈️';
+function wxLoad(force){const L=st.wxLoc;if(!L)return;if(!force&&wx&&wx.lat===L.lat&&wx.lon===L.lon&&wx.d===ymd(new Date())&&Date.now()-wx.t<36e5)return;
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+L.lat+'&longitude='+L.lon+'&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=2')
+    .then(r=>r.ok?r.json():Promise.reject()).then(j=>{const D=j.daily,R=i=>({c:D.weather_code[i],mx:Math.round(D.temperature_2m_max[i]),mn:Math.round(D.temperature_2m_min[i]),p:D.precipitation_probability_max[i]??0});
+      wx={lat:L.lat,lon:L.lon,t:Date.now(),d:D.time[0],now:Math.round(j.current.temperature_2m),nc:j.current.weather_code,td:R(0),tm:R(1)};
+      try{localStorage.setItem('celine-wx',JSON.stringify(wx))}catch(e){}if(tab==='home')softRender();if($('#wxs')&&$('#sh').classList.contains('on'))wxSheet(1)}).catch(()=>{})}
+function wxLine(){if(!st.wxLoc||!wx||wx.d!==ymd(new Date()))return '';
+  return `<div class="wx" onclick="wxSheet()">${wxEmo(wx.nc)} ${wx.now}° <span>· ${wx.td.mn}° / ${wx.td.mx}° · 💧 pluie ${wx.td.p} %</span></div>`}
+let wxRes=[];
+function wxSheet(keep){const L=st.wxLoc,ok=L&&wx&&wx.d===ymd(new Date());
+  sheet(`<h3 id="wxs">🌤️ Météo</h3>${L?`<p class="mut">📍 ${esc(L.n)}</p>`:'<p class="mut">La température et le risque de pluie, en haut de l\'accueil. Choisis ta commune.</p>'}
+  ${ok?`<div class="pday"><b>Aujourd'hui : ${wxEmo(wx.td.c)} ${wx.td.mn}° / ${wx.td.mx}° · 💧 ${wx.td.p} %</b>Demain : ${wxEmo(wx.tm.c)} ${wx.tm.mn}° / ${wx.tm.mx}° · 💧 ${wx.tm.p} %</div>`:''}
+  <div class="lbl">${L?'Changer de commune':'Ta commune'}</div>
+  <div class="addrow"><input id="wq" placeholder="Ex : Namur" enterkeyhint="search" onkeydown="if(event.key==='Enter')wxFind()"><button onclick="wxFind()" aria-label="Chercher">🔎</button></div>
+  <div class="chips wrap" id="wxr" style="margin-top:8px"></div>
+  <div class="row" style="margin-top:8px"><button class="btn soft" onclick="wxGeo()">📍 Utiliser ma position</button></div>
+  ${L?'<div style="text-align:center;margin-top:12px"><span class="link" style="color:var(--mut)" onclick="wxOff()">Retirer la météo</span></div>':''}
+  <p class="mut" style="margin-top:12px">Seulement sur ce téléphone. Prévisions : Open-Meteo.</p>`,keep)}
+function wxFind(){const q=($('#wq').value||'').trim();if(q.length<2)return;$('#wxr').innerHTML='<span class="mut">Recherche…</span>';
+  fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=fr&format=json&name='+encodeURIComponent(q)).then(r=>r.json()).then(j=>{wxRes=j.results||[];
+    $('#wxr').innerHTML=wxRes.length?wxRes.map((x,i)=>`<button class="chip" onclick="wxPick(${i})">${esc(x.name)}<span class="mut"> · ${esc([x.admin1,x.country].filter(Boolean).join(', '))}</span></button>`).join(''):'<span class="mut">Aucune commune trouvée.</span>'})
+    .catch(()=>{$('#wxr').innerHTML='<span class="mut">Pas de connexion.</span>'})}
+function wxSet(lat,lon,n){st.wxLoc={lat:+(+lat).toFixed(3),lon:+(+lon).toFixed(3),n};saveLocal();wxLoad(1);wxSheet(1);toast('Météo ajoutée 🌤️')}
+function wxPick(i){const x=wxRes[i];if(x)wxSet(x.latitude,x.longitude,x.name+(x.admin1?' ('+x.admin1+')':''))}
+function wxGeo(){if(!navigator.geolocation){toast('Position non disponible');return}toast('Recherche de ta position…');
+  navigator.geolocation.getCurrentPosition(p=>wxSet(p.coords.latitude,p.coords.longitude,'Ma position'),()=>toast('Position refusée : cherche ta commune'),{timeout:15000,maximumAge:36e5})}
+function wxOff(){delete st.wxLoc;wx=null;try{localStorage.removeItem('celine-wx')}catch(e){}saveLocal();closeSheet();render()}
+
 // ---------- Vues ----------
 const V={
 home(){
@@ -616,11 +849,14 @@ home(){
   const m=st.meals[ti]||{};
   const ev=upcoming().filter(x=>x.n>=1&&x.n<=14).slice(0,4);
   const wk=st.tasks.length?st.tasks.filter(isDone).length/st.tasks.length:0;
-  return `<div class="hero"><div class="hi">${hi} ${who()} ${TH().hi}</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div><div class="quote">${(TH().neutral?QUOTES2:QUOTES)[doy%(TH().neutral?QUOTES2:QUOTES).length]}</div></div>
+  return `<div class="hero"><div class="hi">${hi} ${who()} ${TH().hi}</div><div class="date">${d.toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long'})}</div>${wxLine()}${motHTML()||`<div class="quote">${(TH().neutral?QUOTES2:QUOTES)[doy%(TH().neutral?QUOTES2:QUOTES).length]}</div>`}</div>
   ${installBanner()}
+  ${pouceCards()}
   ${alertCard()}
+  ${binCard()}
+  ${cdCard()}
   <div class="card"><h2>🧹 Ménage d'aujourd'hui<small onclick="dayF=${ti};go('menage')" class="link">Tout voir ›</small></h2>
-    ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${tdy.map(t=>taskRow(t)).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
+    ${tdy.length?`<div class="row" style="align-items:flex-start;gap:14px">${ring(dn/tdy.length)}<div style="flex:1;min-width:0">${[...tdy].sort((a,b)=>isDone(a)-isDone(b)).map(t=>taskRow(t)).join('')}</div></div>`:`<div class="mut">Rien de prévu aujourd'hui, profite ! ☕</div>`}
     ${anyw.length?`<div class="cat">🗓️ Cette semaine, quand tu veux</div>${anyw.map(t=>taskRow(t)).join('')}`:''}
   </div>
   <div class="grid2">
@@ -633,7 +869,8 @@ home(){
     <div class="item"><span class="e">☀️</span><span class="t">${m.m?esc(m.m):'<span class="mut">Midi : pas encore prévu</span>'}</span></div>
     <div class="item"><span class="e">🌙</span><span class="t">${m.s?esc(m.s):'<span class="mut">Soir : pas encore prévu</span>'}</span></div></div>
   <div class="card"><h2>📅 À venir<small onclick="go('agenda')" class="link">Agenda ›</small></h2>${ev.length?ev.map(evRow).join(''):'<div class="mut">Rien dans les 2 prochaines semaines.</div>'}</div>
-  <div class="card"><h2>📝 Pense-bête</h2><textarea placeholder="Une idée, un truc à ne pas oublier…" oninput="st.memo=this.value;st.memoU=Date.now();save()">${esc(st.memo)}</textarea></div>`;
+  <div class="card"><h2>📝 Pense-bête</h2><textarea placeholder="Une idée, un truc à ne pas oublier…" oninput="st.memo=this.value;st.memoU=Date.now();save()">${esc(st.memo)}</textarea></div>
+  ${toolsCard()}`;
 },
 menage(){
   const all=st.tasks,dn=all.filter(isDone).length,ti=todayI();
@@ -651,13 +888,12 @@ menage(){
 },
 courses(){
   const left=st.shop.filter(i=>!i.done),got=st.shop.filter(i=>i.done);
-  const inList=new Set(left.map(i=>i.t.toLowerCase()));
-  const fav=Object.entries(st.hist).filter(([k])=>!inList.has(k)).sort((a,b)=>b[1]-a[1]).slice(0,14).map(x=>x[0]);
-  const row=i=>`<div class="item ${i.done?'done':''}"><button class="ck" onclick="toggleItem('${i.id}')">✓</button><span class="t" onclick="toggleItem('${i.id}')">${esc(i.t)}</span><button class="x" onclick="changeCat('${i.id}')" aria-label="Rayon">${CATS[i.c][1]}</button><button class="x" onclick="delItem('${i.id}')" aria-label="Supprimer">✕</button></div>`;
+  const fav=favList(),F=st.fav||{};
+  const row=i=>`<div class="item ${i.done?'done':''}"><button class="ck" onclick="toggleItem('${i.id}')">✓</button><span class="t" onclick="toggleItem('${i.id}')">${esc(i.t)}${qOf(i)}</span><button class="x" onclick="changeCat('${i.id}')" aria-label="Rayon">${CATS[i.c][1]}</button><button class="x" onclick="delItem('${i.id}')" aria-label="Supprimer">✕</button></div>`;
   let groups='';
   CATS.forEach((c,ci)=>{const l=left.filter(i=>i.c===ci);if(l.length)groups+=`<div class="cat">${c[1]} ${c[0]}</div>${l.map(row).join('')}`});
   return `<div class="card"><div class="addrow"><input id="ni" placeholder="Ajouter un article…" enterkeyhint="done" onkeydown="if(event.key==='Enter')addItem(this.value)"><button onclick="addItem($('#ni').value)">+</button></div>
-    ${fav.length?`<div class="lbl">Souvent acheté</div><div class="chips">${fav.map(f=>`<button class="chip" onclick="addItem(this.dataset.n)" data-n="${esc(f)}">+ ${esc(f)}</button>`).join('')}</div>`:''}</div>
+    ${fav.length?`<div class="lbl" style="display:flex">Souvent acheté<span class="link" style="margin-left:auto;text-transform:none;letter-spacing:0" onclick="favSheet()">✏️ Gérer</span></div><div class="chips">${fav.map(f=>`<button class="chip" onclick="addItem(this.dataset.n)" data-n="${esc(f)}">${F[f]&&F[f].p?'📌':'+'} ${esc(f)}</button>`).join('')}</div>`:''}</div>
   <div class="card"><h2>🛒 À acheter<small>${left.length} article${left.length>1?'s':''}</small></h2>
     ${left.length?groups:'<div class="empty"><b>🧺</b>La liste est vide.</div>'}</div>
   ${got.length?`<div class="card"><h2>✅ Dans le caddie<small class="link" onclick="clearTaken()">Retirer</small></h2>${got.map(row).join('')}</div>`:''}
@@ -665,9 +901,11 @@ courses(){
 },
 repas(){
   const ti=todayI();
-  return `<p class="mut" style="margin:6px 4px">Prévois les repas de la semaine. Le 🎲 te donne une idée si tu manques d'inspiration.</p>
+  const nd=(st.dishes||[]).length;
+  return `<div class="card" style="padding:12px 14px"><div class="row" style="justify-content:space-between"><b style="font-size:15px">🎲 Le dé propose</b><span class="link" onclick="dishesSheet()">📖 Nos plats${nd?' ('+nd+')':''}</span></div>
+  <div class="chips" style="padding-bottom:2px"><button class="chip ${st.diceOwn?'':'on'}" onclick="setDiceOwn(0)">Toutes les idées</button><button class="chip ${st.diceOwn?'on':''}" onclick="setDiceOwn(1)">⭐ Nos plats</button></div></div>
   ${DAYS.map((d,i)=>{const m=st.meals[i]||{};return `<div class="card ${i===ti?'today':''}"><h2>${i===ti?'⭐ ':''}${d}</h2>
-  ${['m','s'].map(k=>`<div class="meal"><span class="lb">${k==='m'?'☀️ Midi':'🌙 Soir'}</span><input id="m${i}${k}" value="${esc(m[k]||'')}" placeholder="…" oninput="setMeal(${i},'${k}',this.value)"><button class="dice" onclick="dice(${i},'${k}')" aria-label="Idée">🎲</button></div>`).join('')}</div>`}).join('')}
+  ${['m','s'].map(k=>`<div class="meal"><span class="lb">${k==='m'?'☀️ Midi':'🌙 Soir'}</span><input id="m${i}${k}" value="${esc(m[k]||'')}" placeholder="…" oninput="setMeal(${i},'${k}',this.value)" onchange="addDish(this.value)"><button class="dice" onclick="dice(${i},'${k}')" aria-label="Idée">🎲</button></div>`).join('')}</div>`}).join('')}
   <div class="row"><button class="btn soft" onclick="mealsToShop()">🛒 Ingrédients → courses</button></div>
   <label class="tog"><input type="checkbox" ${st.mealsAuto?'checked':''} onchange="autoMeals(this)"> Vider les repas automatiquement chaque lundi</label>
   <div class="row"><button class="btn del" style="flex:1" onclick="clearMeals()">Vider la semaine</button></div>`;
@@ -736,7 +974,7 @@ function restore(inp){
   r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.tasks)throw 0;const fam=st.fam,name=st.name;st=Object.assign(def(),s,{fam,name});tidy();save();closeSheet();render();toast('Données restaurées ✅')}catch(e){toast('Fichier non reconnu ❌')}inp.value=''};
   r.readAsText(f);
 }
-function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events].forEach(x=>g[x.id]=n);const nm=st.name,sc={};for(const k in st.sched)sc[k]={v:'',u:n};st=def();st.name=nm;st.sched=sc;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
+function wipe(){if(confirm('Effacer toutes les listes ? Elles seront aussi effacées sur l\'autre téléphone. Cette action est définitive.')){const g={...st.gone},n=Date.now();[...st.tasks,...st.shop,...st.events,...st.dishes,...st.lists,...st.infos,...st.bins,...st.msgs].forEach(x=>g[x.id]=n);const nm=st.name,sc={};for(const k in st.sched)sc[k]={v:'',u:n};st=def();st.name=nm;st.sched=sc;st.tasks.forEach(x=>g[x.id]=n);st.tasks=[];st.gone=g;st.memoU=n;emptyMeals();save();closeSheet();go('home');toast('Tout est remis à zéro')}}
 
 // ---------- Installation ----------
 // Le lien peut s'ouvrir n'importe où (WhatsApp, Messenger, Safari, Chrome…) : un grand écran guide pas à pas.
@@ -788,7 +1026,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-02.1';
+const APPV='2026-11-20.1';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -822,7 +1060,10 @@ const asMap=a=>{const o={};(a||[]).forEach(x=>{if(x&&x.id)o[x.id]=x});return o};
 function pack(s){
   const meals={};for(let d=0;d<7;d++)for(const k of['m','s']){const u=s.mu[d+k]||0,v=(s.meals[d]||{})[k]||'';if(u||v)meals[d+k]={v,u}}
   const hist={};for(const k in s.hist)hist[hk(k)]=s.hist[k];
-  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),shifts:asMap(s.shifts),profiles:asMap(s.profiles),sched:s.sched,meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone})||{};
+  const fav={};for(const k in s.fav||{})fav[hk(k)]=s.fav[k];
+  const lists=(s.lists||[]).map(l=>({...l,items:asMap(l.items)}));   // les lignes d'une liste : rangées par id (pas de tableau dans Firebase)
+  return norm({tasks:asMap(s.tasks),shop:asMap(s.shop),events:asMap(s.events),shifts:asMap(s.shifts),profiles:asMap(s.profiles),sched:s.sched,meals,memo:{v:s.memo||'',u:s.memoU||0},hist,gone:s.gone,
+    dishes:asMap(s.dishes),lists:asMap(lists),infos:asMap(s.infos),bins:asMap(s.bins),msgs:asMap(s.msgs),fav})||{};
 }
 function merge(a,b){
   a=a||{};b=b||{};const g={...(a.gone||{})};for(const k in b.gone||{})g[k]=Math.max(g[k]||0,b.gone[k]);
@@ -832,7 +1073,9 @@ function merge(a,b){
   const meals={...(a.meals||{})};for(const k in b.meals||{})meals[k]=newer(meals[k],b.meals[k]);
   const hist={...(a.hist||{})};for(const k in b.hist||{})hist[k]=Math.max(hist[k]||0,b.hist[k]);
   const sched={...(a.sched||{})},so=schedMin();for(const k in b.sched||{})sched[k]=newer(sched[k],b.sched[k]);for(const k in sched)if(k<so)delete sched[k];
-  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),shifts:lst('shifts'),profiles:lst('profiles'),sched,meals,memo:newer(a.memo,b.memo),hist,gone:g})||{};
+  const fav={...(a.fav||{})};for(const k in b.fav||{})fav[k]=newer(fav[k],b.fav[k]);
+  return norm({tasks:lst('tasks'),shop:lst('shop'),events:lst('events'),shifts:lst('shifts'),profiles:lst('profiles'),sched,meals,memo:newer(a.memo,b.memo),hist,gone:g,
+    dishes:lst('dishes'),lists:lst('lists'),infos:lst('infos'),bins:lst('bins'),msgs:lst('msgs'),fav})||{};
 }
 function unpack(m){
   const vals=o=>Object.values(o||{}).sort((x,y)=>x.id<y.id?-1:1);
@@ -841,6 +1084,9 @@ function unpack(m){
   st.memo=(m.memo&&m.memo.v)||'';st.memoU=(m.memo&&m.memo.u)||0;
   st.hist={};for(const k in m.hist||{})st.hist[decodeURIComponent(k.slice(1))]=m.hist[k];
   st.shifts=vals(m.shifts);st.profiles=vals(m.profiles);st.sched=m.sched||{};applyMine();
+  st.dishes=vals(m.dishes);st.infos=vals(m.infos);st.bins=vals(m.bins);st.msgs=vals(m.msgs);
+  st.lists=vals(m.lists).map(l=>({...l,items:Object.values(l.items||{}).sort((x,y)=>(x.o||0)-(y.o||0))}));
+  st.fav={};for(const k in m.fav||{})st.fav[decodeURIComponent(k.slice(1))]=m.fav[k];
   st.gone=m.gone||{};
 }
 const famURL=()=>FB+'/familles/'+FAM+'.json';
@@ -904,7 +1150,7 @@ async function notifOn(){
     const pub=await pushKey();let sub=await reg.pushManager.getSubscription();
     if(sub&&(!sub.options.applicationServerKey||b64e(sub.options.applicationServerKey)!==pub)){await sub.unsubscribe();sub=null}
     if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(pub)});
-    const j=sub.toJSON(),r=await fetch(pushURL(hashStr(j.endpoint)),{method:'PUT',body:JSON.stringify({endpoint:j.endpoint,keys:j.keys,name:st.name||'',t:Date.now()})});
+    const j=sub.toJSON(),r=await fetch(pushURL(hashStr(j.endpoint)),{method:'PUT',body:JSON.stringify({endpoint:j.endpoint,keys:j.keys,name:st.name||'',me:st.me||'',t:Date.now()})});
     if(!r.ok)throw r.status;
     st.notif=1;saveLocal();toast('🔔 Notifications activées !');settings();
   }catch(e){toast('Impossible d\'activer les notifications, réessaie plus tard')}
@@ -921,12 +1167,16 @@ function notifBlock(){
     <div class="row">${on?'<button class="btn soft" onclick="notifOff()">🔕 Couper les rappels</button>':'<button class="btn" onclick="notifOn()">🔔 Activer les rappels</button>'}</div>`;
 }
 // Clic sur une notification : ouvrir l'agenda.
-if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='agenda')go('agenda')});
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='agenda'||e.data==='home')go(e.data)});
 if(location.hash==='#agenda'){tab='agenda';history.replaceState(null,'',location.pathname)}
 setInterval(()=>{if(!document.hidden)sync()},30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopStream();else{startStream();sync()}});
 addEventListener('online',()=>sync());
 applyTheme();applyPhoto();render();setSy(syncOK);setTimeout(()=>showIns(),700);
+wxLoad();document.addEventListener('visibilitychange',()=>{if(!document.hidden){wxLoad();annivConfetti()}});
+// Un anniversaire aujourd'hui : quelques confettis, une fois par jour sur ce téléphone.
+function annivConfetti(){const td=ymd(new Date());if(!upcoming().some(x=>x.n===0&&x.e.type==='anniv'))return;try{if(localStorage.getItem('celine-cf')===td)return;localStorage.setItem('celine-cf',td)}catch(e){return}setTimeout(confetti,600)}
+annivConfetti();
 </script>
 </body>
 </html>

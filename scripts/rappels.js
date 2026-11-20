@@ -2,6 +2,8 @@
 //  - Anniversaires : la veille (dès 7h) et le jour même (dès 7h).
 //  - Rendez-vous et autres événements : la veille dès 19h, et entre 1 h 30 et quelques minutes avant s'il y a une heure
 //    (GitHub lance la tâche toutes les 30 à 45 min en pratique, d'où cette fenêtre large).
+//  - Poubelles : la veille dès 19h (une seule notification pour toutes les collectes du lendemain).
+//  - Coup de pouce et petit mot : dès qu'ils sont envoyés (au prochain passage), seulement aux autres téléphones.
 // Chaque rappel n'est envoyé qu'une fois : les rappels déjà envoyés sont notés dans FB/familles/FAM-sent.
 // La clé d'envoi est dans FB/familles/FAM-pushkey (créée par l'appli).
 const FB = 'https://celine-fcdb2-default-rtdb.europe-west1.firebasedatabase.app';
@@ -46,10 +48,42 @@ function reminders(events, now) {
   return out;
 }
 
+// Poubelles : prochaine collecte (date de référence + toutes les w semaines), en jours « muraux ».
+const dayNum = k => { const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+function binReminders(bins, now) {
+  const n = wallBE(now), tm = wallBE(new Date(now.getTime() + 864e5)), tomorrow = dayKey(tm.y, tm.m, tm.d), t = dayNum(tomorrow);
+  if (n.h < 19) return [];
+  const due = Object.values(bins || {}).filter(b => {
+    if (!b || !b.date || b.rem === false) return false;
+    const s = (b.w || 1) * 7, diff = t - dayNum(b.date);
+    return diff >= 0 && diff % s === 0;
+  });
+  if (!due.length) return [];
+  return [{ key: 'pb-' + tomorrow, title: '🗑️ Ce soir, sortir les poubelles', body: due.map(b => (b.e || '') + ' ' + b.n).join(' · '), tag: 'poubelles', url: './' }];
+}
+
+// Coups de pouce (du jour) et petits mots : envoyés une fois, aux bons téléphones seulement.
+function msgReminders(msgs, profiles, now) {
+  const n = wallBE(now), today = dayKey(n.y, n.m, n.d), name = id => ((profiles || {})[id] || {}).name || '';
+  const out = [];
+  for (const m of Object.values(msgs || {})) {
+    if (!m || m.seen || !m.u || now.getTime() - m.u > 6 * 3600e3) continue;
+    const from = name(m.from);
+    // Abonnement de l'expéditeur (ou du destinataire) : par profil (me), sinon par prénom.
+    const is = (s, id, nm) => s.me ? s.me === id : !!nm && (s.name || '') === nm;
+    if (m.k === 'pouce' && m.d === today)
+      out.push({ key: 'msg-' + m.id + '-' + m.u, title: '🤝 ' + (from || 'Coup de pouce'), body: (m.e || '') + ' ' + m.t, tag: 'pouce-' + m.from, url: './', to: s => !is(s, m.from, from) });
+    if (m.k === 'mot')
+      out.push({ key: 'msg-' + m.id + '-' + m.u, title: '💌 Un petit mot' + (from ? ' de ' + from : ''), body: 'Ouvre Céline pour le lire 💗', tag: 'mot-' + m.from, url: './', to: s => is(s, m.to, name(m.to)) });
+  }
+  return out;
+}
+
 async function main() {
   const get = async p => (await (await fetch(url(p))).json()) || {};
   const data = await get(''), sent = await get('-sent');
-  const todo = reminders(data.events, new Date()).filter(r => !sent[r.key]);
+  const now = new Date();
+  const todo = [...reminders(data.events, now), ...binReminders(data.bins, now), ...msgReminders(data.msgs, data.profiles, now)].filter(r => !sent[r.key]);
   console.log(todo.length + ' rappel(s) à envoyer', todo.map(r => r.title + ' / ' + r.body));
   if (!todo.length) return;
   const key = await get('-pushkey');
@@ -58,8 +92,10 @@ async function main() {
   webpush.setVapidDetails('https://nicolas06061997.github.io/Celine/', key.pub, key.priv);
   const subs = await get('-push');
   for (const r of todo) {
+    const { to, key: _k, ...msg } = r;
     for (const [id, s] of Object.entries(subs)) {
-      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(r), { TTL: 3 * 3600 }); console.log('envoyé à', s.name || id); }
+      if (to && !to(s)) continue;
+      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(msg), { TTL: 3 * 3600 }); console.log('envoyé à', s.name || id); }
       catch (e) {
         console.log('échec', s.name || id, e.statusCode);
         // Téléphone désabonné ou appli supprimée : on oublie cet abonnement.
@@ -74,4 +110,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
-module.exports = { reminders };
+module.exports = { reminders, binReminders, msgReminders };

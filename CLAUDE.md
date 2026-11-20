@@ -17,7 +17,7 @@ L'utilisateur parle français et n'est pas développeur : réponses courtes, en 
 `python3 -m http.server 8000` puis `http://localhost:8000/`. Pas de build, aucune bibliothèque externe.
 
 ## Données
-Objet `st` sauvegardé dans `localStorage` clé `celine1` : `tasks` (jour 0-6 = lundi-dimanche, 7 = n'importe quand ; `done` = lundi de la semaine où c'est fait), `shop` (`c` = index dans `CATS`), `hist`, `meals`, `events`, `memo`.
+Objet `st` sauvegardé dans `localStorage` clé `celine1` : `tasks` (jour 0-6 = lundi-dimanche, 7 = n'importe quand ; `done` = lundi de la semaine où c'est fait), `shop` (`c` = index dans `CATS`, `q` = quantité), `hist`, `fav` (« Souvent acheté » : `{nom:{p épinglé,h retiré,u}}`), `meals`, `dishes` (nos plats `{id,t,ing,u}`), `events` (`cd` = compte à rebours sur l'accueil), `memo`, `bins`, `lists`, `infos`, `msgs`.
 `tidy()` remet la semaine à zéro. Sauvegarde/restauration en JSON dans les réglages.
 
 ## Partage entre les téléphones de la famille
@@ -30,6 +30,22 @@ Toute modification doit mettre à jour `u` (ou `mu` pour les repas, `memoU` pour
 Règles Firebase : `{"rules":{"familles":{"$code":{".read":"$code.length >= 20",".write":"$code.length >= 20"}}}}`
 La session de développement ne peut pas joindre Firebase : tester avec un faux serveur (route Playwright).
 
+## Courses et repas
+Quantité écrite avec l'article (`parseQ()` : « lait x2 », « 3x yaourts ») ; rajouter un article déjà dans la liste fait +1 (`shopAdd(nom,1)`).
+« Souvent acheté » : `favList()`, `favSheet()` (📌 / ✕).
+Chaque plat écrit à la main va dans `st.dishes` (`addDish()` sur `onchange`) ; le dé choisit dans toutes les idées ou « Nos plats » (`st.diceOwn`, local).
+« Ingrédients → courses » (`mealsToShop()`/`addIng()`) préremplit les ingrédients connus et retient ceux qu'on écrit.
+
+## Mes outils (carte en bas de l'accueil, `toolsCard()`)
+Tout s'ouvre en fenêtre (`sheet`), rien n'alourdit les 5 onglets. Collections partagées comme le reste (`u` + `gone`).
+- Poubelles `st.bins={id,e,n,date,w,rem,u}` : une date de collecte + toutes les `w` semaines (`binNext()`) ; carte verte la veille (`binCard()`) + notification la veille dès 19h.
+- Listes à cocher `st.lists={id,e,t,items:[{id,t,ok,o}],u}` ; dans Firebase les lignes sont rangées par id (`pack()`/`unpack()`), pas en tableau.
+- Infos utiles `st.infos={id,e,t,v,u}` ; numéros cliquables (`telify()`) ; 112, 1733, pharmacie.be.
+- Messages `st.msgs={id,k,from,to,t,e,d,seen,u}` : petit mot (`mot-<de>-<pour>`, remplace la phrase du jour jusqu'à « Merci ») et coup de pouce (`pouce-<de>`, bandeau du jour chez les autres). Besoin de `st.me` (`needMe()`).
+- Météo Open-Meteo (gratuit, sans clé) : `st.wxLoc` et cache `celine-wx`, propres au téléphone (`wxLoad()`, `wxLine()` dans le bandeau d'accueil).
+- Confettis (`confetti()`) : tout le ménage du jour fait, ou anniversaire du jour (une fois par jour, clé `celine-cf`).
+Anciennes versions : leur `merge()` oublie les nouvelles clés, mais un téléphone à jour les remet au prochain envoi (rien n'est perdu).
+
 ## Installation
 Manifeste en plein écran (`display: fullscreen`, sans barres du téléphone sur Android ; `standalone()` le reconnaît).
 Écran plein `#ins` (`showIns()`, `insHTML()`) au démarrage si l'appli n'est pas installée : adapte les explications
@@ -40,6 +56,7 @@ Manifeste en plein écran (`display: fullscreen`, sans barres du téléphone sur
 Web Push : le premier téléphone qui active crée la paire de clés (`pushKey()`, WebCrypto) dans `FB/familles/FAM-pushkey` ; chacun s'abonne (`notifOn()`) et range l'abonnement dans `FB/familles/FAM-push/<id>.json`.
 `.github/workflows/rappels.yml` lance `scripts/rappels.js` tous les quarts d'heure :
 anniversaires la veille et le jour J (dès 7h) ; autres événements la veille dès 19h et dans les 95 min avant (si heure ; GitHub lance en pratique toutes les 30-45 min). `rem:false` sur un événement = pas de rappel.
+Aussi : poubelles la veille dès 19h (`binReminders`), coups de pouce et petits mots dans les 6 h (`msgReminders`), envoyés seulement aux bons téléphones (abonnement avec `me`, sinon par prénom).
 Chaque rappel n'est envoyé qu'une fois (clés notées 3 jours dans `FB/familles/FAM-sent`). Abonnements morts (404/410) supprimés.
 Accueil : `alertCard()` met en haut les événements du jour (et ceux de demain) ; « À venir » commence à demain.
 `sw.js` affiche la notification (`push`) et ouvre l'agenda au clic. Sur iPhone : seulement si l'appli est installée (iOS 16.4+).
