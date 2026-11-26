@@ -1042,7 +1042,7 @@ function installBanner(){if(standalone()||st.noBanner)return '';
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tidy();if(!$('#sh').classList.contains('on')&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){dayF=tab==='menage'?dayF:todayI();render()}}});
 
 // Version de l'appli : à changer à chaque mise à jour, avec la même valeur dans version.json.
-const APPV='2026-11-20.2';
+const APPV='2026-11-26.1';
 let SWR=null;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v='+APPV).then(r=>{SWR=r}).catch(()=>{});
 // Nouvelle version publiée ? On affiche « Nouvelle mise à jour disponible ».
@@ -1124,6 +1124,11 @@ async function sync(){
 const typing=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&!$('#sh').contains(a)};
 function softRender(){const a=document.activeElement;if(a&&a.id==='ni'){const v=a.value;render();const n=$('#ni');if(n){n.value=v;n.focus()}return}if(typing())needR=true;else render()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(needR&&!typing()){needR=false;render()}},250));
+/* iPhone : après le clavier, la barre du bas restait au milieu de l'écran -> on recale la page */
+function vpFix(){const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;const y=window.scrollY;window.scrollTo(0,y+1);window.scrollTo(0,y)}
+document.addEventListener('focusout',()=>{setTimeout(vpFix,50);setTimeout(vpFix,400)});
+if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(visualViewport.height>innerHeight*0.85)setTimeout(vpFix,60)});
+addEventListener('pageshow',()=>setTimeout(vpFix,100));
 // Écoute en direct : dès que l'autre téléphone change quelque chose, on récupère.
 let es=null,esT;
 function startStream(){stopStream();if(!window.EventSource)return;
